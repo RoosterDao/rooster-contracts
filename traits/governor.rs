@@ -5,6 +5,28 @@ use ink_storage::traits::{
 
 use ink_prelude::string::String;
 
+#[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum ProposalState {
+    Pending,
+    Active,
+    Canceled,
+    Defeated,
+    Succeeded,
+    Queued,
+    Expired,
+    Executed
+}
+
+#[derive(scale::Encode, scale::Decode, Debug, PartialEq, Eq, Copy, Clone)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum MockError {
+    NotOwner,
+    NotApproved,
+    NotAllowed,
+}
+
+
 #[cfg(feature = "std")]
 use ink_storage::traits::StorageLayout;
 
