@@ -12,6 +12,12 @@ pub mod governor {
 
     use ink_env::hash::Blake2x256;
     
+
+    // use ink_lang::codegen::{
+    //     EmitEvent,
+    //     Env,
+    // };
+
     use openbrush::{
         storage::Mapping,
         contracts::timelock_controller::*,
@@ -19,6 +25,12 @@ pub mod governor {
     
     use roosterdao::traits::governor::*;
 
+
+    #[ink(event)]
+    pub struct ProposalCreated {
+        proposal_id: OperationId ,
+    }
+   
 
     #[ink(storage)]
     #[derive(Default,SpreadAllocate,TimelockControllerStorage)]
@@ -51,6 +63,13 @@ pub mod governor {
 
         //////////////////////////////
         /// Governor internal
+        /// 
+
+        fn _emit_proposal_created(&self, proposal_id : OperationId) {
+            self.env().emit_event(ProposalCreated { proposal_id })
+        }
+
+
         fn _hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId {
             TimelockController::hash_operation(self, transaction,None, description_hash)
         }
@@ -150,6 +169,8 @@ pub mod governor {
             let proposal_id = self._hash_proposal(transaction, description_hash);
 
             self.proposals.insert(&proposal_id, &ProposalCore::default());
+
+            self._emit_proposal_created(proposal_id);
 
             //ink_env::debug_println!("propose: proposal_id={}", proposal_id);
             Ok(proposal_id)
