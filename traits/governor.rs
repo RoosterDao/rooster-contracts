@@ -5,6 +5,8 @@ use ink_storage::traits::{
 
 use ink_prelude::string::String;
 
+use openbrush::contracts::timelock_controller::*;
+
 #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum ProposalState {
@@ -42,4 +44,7 @@ pub struct ProposalCore {
 pub trait Governor {
     #[ink(message)]
     fn name(&self) -> String;
+
+    #[ink(message)]
+    fn hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId;
 }

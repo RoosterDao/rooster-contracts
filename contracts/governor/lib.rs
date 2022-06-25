@@ -5,31 +5,50 @@
 #[openbrush::contract]
 pub mod governor {
     use ink_storage::traits::SpreadAllocate;
+    use ink_prelude::vec;
     use ink_prelude::string::{
         String,
-        ToString,
     };
 
     
-    use openbrush::storage::Mapping;
+    use openbrush::{
+        storage::Mapping,
+        contracts::timelock_controller::*,
+    };
     
     use roosterdao::traits::governor::*;
 
 
     #[ink(storage)]
-    #[derive(SpreadAllocate)]
+    #[derive(Default,SpreadAllocate,TimelockControllerStorage)]
     pub struct Governor {
+        #[TimelockControllerStorageField]
+        timelock: TimelockControllerData,
+        name: Option<String>,
         proposals: Mapping<AccountId, ProposalCore>,
     }
 
+
     impl Governor {
         #[ink(constructor)]
-        pub fn new() -> Self {
-            // This call is required in order to correctly initialize the
-            // `Mapping`s of our contract.
-            ink_lang::utils::initialize_contract(|_| {})
+        pub fn new(name: Option<String>,min_delay: Timestamp) -> Self {
+            ink_lang::utils::initialize_contract(|instance: &mut Self| {
+                instance.name = name;
+
+                let caller = instance.env().caller();
+                
+                //TODO: specify nobody as proposer, contract address as executor
+                let cal_vec = vec![caller];
+                
+                // `TimelockController` and `AccessControl` have `_init_with_admin` methods.
+                // You need to call it for each trait separately, to initialize everything for these traits.
+                AccessControlInternal::_init_with_admin(instance, caller);
+                TimelockControllerInternal::_init_with_admin(instance, caller, min_delay, cal_vec.clone(), cal_vec);
+   
+            })
         }
 
+        //////////////////////////////
         /// Governor read functions
         #[ink(message)]
         pub fn get_votes(&self, account: AccountId, blocknumber: BlockNumber) -> u32 {
@@ -44,9 +63,9 @@ pub mod governor {
         }
 
         #[ink(message)]
-        pub fn name(&self) -> String {
+        pub fn name(&self) -> Option<String> {
             ink_env::debug_println!("name");
-            "Governor".to_string()
+            self.name.clone()
         }
 
         #[ink(message)]
@@ -85,6 +104,14 @@ pub mod governor {
             0
         }
 
+        #[ink(message)]
+        pub fn hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId {
+            TimelockController::hash_operation(self, transaction,None, description_hash)
+        }
+
+
+
+        //////////////////////////////
         /// Governor write functions
         #[ink(message)]
         pub fn cast_vote(&self, proposal_id: u128) -> Result<(),MockError> {
@@ -107,19 +134,26 @@ pub mod governor {
 
     mod tests {
         use ink_lang as ink;
-        use crate::governor::Governor;
         
+
+
+        #[allow(unused_imports)]
+        use crate::governor::{
+            Governor,
+            Transaction,
+            OperationId
+        };        
 
         #[ink::test]
         fn default_works() {
-            let governor = Governor::new();
-            assert_eq!(governor.name(), "Governor");
+            let governor = Governor::new(Some(String::from("Governor")),0);
+            assert_eq!(governor.name(), Some(String::from("Governor")));
         }
 
 
         #[ink::test]
         fn get_votes_works() {
-            let governor = Governor::new();
+            let governor = Governor::new(Some(String::from("Governor")),0);
             let block_number = ink_env::block_number::<ink_env::DefaultEnvironment>();
             let accounts =
                 ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
@@ -128,7 +162,7 @@ pub mod governor {
 
         #[ink::test]
         fn has_voted_works() {
-            let governor = Governor::new();
+            let governor = Governor::new(Some(String::from("Governor")),0);
             let accounts =
                 ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
             assert_eq!(governor.has_voted(0, accounts.alice), false);
@@ -136,64 +170,72 @@ pub mod governor {
 
         #[ink::test]
         fn name_works() {
-            let governor = Governor::new();
-            assert_eq!(governor.name(), "Governor");
+            let governor = Governor::new(Some(String::from("Governor")),0);
+            assert_eq!(governor.name(), Some(String::from("Governor")));
         }
 
         #[ink::test]
         fn proposal_deadline_works() {
-            let governor = Governor::new();
+            let governor = Governor::new(Some(String::from("Governor")),0);
             assert_eq!(governor.proposal_deadline(0),ink_env::block_number::<ink_env::DefaultEnvironment>());
         }
 
         #[ink::test]
         fn proposal_snapshot_works() {
-            let governor = Governor::new();
+            let governor = Governor::new(Some(String::from("Governor")),0);
             assert_eq!(governor.proposal_snapshot(0),ink_env::block_number::<ink_env::DefaultEnvironment>());
         }
 
         #[ink::test]
         fn proposal_votes_works() {
-            let governor = Governor::new();
+            let governor = Governor::new(Some(String::from("Governor")),0);
             assert_eq!(governor.proposal_votes(0), 0);
         }
 
         #[ink::test]
         fn state_works() {
-            let governor = Governor::new();
+            let governor = Governor::new(Some(String::from("Governor")),0);
             assert_eq!(governor.state(0), false);
         }
 
         #[ink::test]
         fn voting_delay_works() {
-            let governor = Governor::new();
+            let governor = Governor::new(Some(String::from("Governor")),0);
             assert_eq!(governor.voting_delay(),0);
         }
 
         #[ink::test]
         fn voting_period_works() {
-            let governor = Governor::new();
+            let governor = Governor::new(Some(String::from("Governor")),0);
             assert_eq!(governor.voting_period(),0);
         }
 
         #[ink::test]
         fn cast_vote_works() {
-            let governor = Governor::new();
+            let governor = Governor::new(Some(String::from("Governor")),0);
             assert!(governor.cast_vote(0).is_ok())
         }
 
         #[ink::test]
         fn execute_works() {
-            let governor = Governor::new();
+            let governor = Governor::new(Some(String::from("Governor")),0);
             assert!(governor.execute(0).is_ok())
         }
 
         #[ink::test]
         fn new_propose_works() {
-            let governor = Governor::new();
+            let governor = Governor::new(Some(String::from("Governor")),0);
             assert!(governor.new_propose(0).is_ok())
         }
 
+        #[ink::test]
+        fn hash_proposal_works() {
+            let governor = Governor::new(Some(String::from("Governor")),0);
+
+            let id = governor.hash_proposal(Transaction::default(),[0;32]);
+            ink_env::debug_println!("hash_proposal: id={:?}", id.clone());
+            assert_ne!(id,OperationId::default())
+        }
 
     }
 
