@@ -10,6 +10,7 @@ pub mod governor {
         String,
     };
 
+    use ink_env::hash::Blake2x256;
     
     use openbrush::{
         storage::Mapping,
@@ -25,7 +26,7 @@ pub mod governor {
         #[TimelockControllerStorageField]
         timelock: TimelockControllerData,
         name: Option<String>,
-        proposals: Mapping<AccountId, ProposalCore>,
+        proposals: Mapping<OperationId, ProposalCore>,
     }
 
 
@@ -47,6 +48,18 @@ pub mod governor {
    
             })
         }
+
+        //////////////////////////////
+        /// Governor internal
+        fn _hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId {
+            TimelockController::hash_operation(self, transaction,None, description_hash)
+        }
+
+        fn _hash_description(&self, description: String) -> [u8; 32] {
+            self.env().hash_bytes::<Blake2x256>(description.as_bytes())
+            
+        }
+
 
         //////////////////////////////
         /// Governor read functions
@@ -104,12 +117,18 @@ pub mod governor {
             0
         }
 
+        // #[ink(message)]
+        // pub fn hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId {
+        //     self._hash_proposal(transaction, description_hash)
+        // }
+
         #[ink(message)]
-        pub fn hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId {
-            TimelockController::hash_operation(self, transaction,None, description_hash)
+        pub fn hash_proposal(&self, transaction: Transaction, description: String) -> OperationId {
+            let description_hash = self._hash_description(description);
+            self._hash_proposal(transaction, description_hash)
         }
 
-
+        
 
         //////////////////////////////
         /// Governor write functions
@@ -126,9 +145,14 @@ pub mod governor {
         }
 
         #[ink(message)]
-        pub fn new_propose(&self, proposal_id: u128) -> Result<(), MockError> {
-            ink_env::debug_println!("propose: proposal_id={}", proposal_id);
-            Ok(())
+        pub fn propose(&mut self, transaction: Transaction, description: String) -> Result<OperationId, MockError>  {
+            let description_hash = self._hash_description(description);
+            let proposal_id = self._hash_proposal(transaction, description_hash);
+
+            self.proposals.insert(&proposal_id, &ProposalCore::default());
+
+            //ink_env::debug_println!("propose: proposal_id={}", proposal_id);
+            Ok(proposal_id)
         }
     }
 
@@ -220,17 +244,17 @@ pub mod governor {
             assert!(governor.execute(0).is_ok())
         }
 
-        #[ink::test]
-        fn new_propose_works() {
-            let governor = Governor::new(Some(String::from("Governor")),0);
-            assert!(governor.new_propose(0).is_ok())
-        }
+        // #[ink::test]
+        // fn propose_works() {
+        //     let governor = Governor::new(Some(String::from("Governor")),0);
+        //     assert!(governor.propose(0).is_ok())
+        // }
 
         #[ink::test]
         fn hash_proposal_works() {
             let governor = Governor::new(Some(String::from("Governor")),0);
 
-            let id = governor.hash_proposal(Transaction::default(),[0;32]);
+            let id = governor.hash_proposal(Transaction::default(),"test proposal".to_string());
             ink_env::debug_println!("hash_proposal: id={:?}", id.clone());
             assert_ne!(id,OperationId::default())
         }

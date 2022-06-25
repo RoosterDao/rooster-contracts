@@ -6,6 +6,7 @@ use ink_storage::traits::{
 use ink_prelude::string::String;
 
 use openbrush::contracts::timelock_controller::*;
+use openbrush::traits::Timestamp;
 
 #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -35,7 +36,8 @@ use ink_storage::traits::StorageLayout;
 #[derive(Default, Debug, Clone, scale::Encode, scale::Decode, SpreadLayout, PackedLayout)]
 #[cfg_attr(feature = "std", derive(StorageLayout, scale_info::TypeInfo))]
 pub struct ProposalCore {
-    proposal: String,
+    vote_start: Timestamp,
+    vote_end:   Timestamp,
     executed: bool,
     canceled: bool,
 }
