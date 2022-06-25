@@ -134,8 +134,6 @@ pub mod governor {
 
     mod tests {
         use ink_lang as ink;
-        
-
 
         #[allow(unused_imports)]
         use crate::governor::{
