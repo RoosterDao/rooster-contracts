@@ -136,9 +136,13 @@ pub mod governor {
         }
 
         #[ink(message)]
-        pub fn proposal_deadline(&self, proposal_id: u128) -> BlockNumber {
-            ink_env::debug_println!("proposal_deadline: proposal_id={}", proposal_id);
-            ink_env::block_number::<ink_env::DefaultEnvironment>()
+        pub fn proposal_deadline(&self, proposal_id: OperationId) -> Timestamp {
+            assert!(self.proposals.contains(&proposal_id), "Proposal does noet exist");
+            
+            let proposal = self.proposals.get(&proposal_id).unwrap();
+
+            proposal.vote_end
+
         }
 
         #[ink(message)]        
@@ -154,9 +158,30 @@ pub mod governor {
         }
 
         #[ink(message)]
-        pub fn state(&self, proposal_id: u128) -> bool {
-            ink_env::debug_println!("state: proposal_id={}", proposal_id);
-            false
+        pub fn state(&self, proposal_id: OperationId) -> ProposalState {
+            assert!(self.proposals.contains(&proposal_id), "Proposal does noet exist");
+            let proposal = self.proposals.get(&proposal_id).unwrap();
+
+            if proposal.executed {
+                return ProposalState::Executed
+            }
+
+            if proposal.canceled {
+                return ProposalState::Canceled
+            }
+
+            if proposal.vote_start > self.env().block_timestamp() {
+                return ProposalState::Pending
+            }
+
+            if proposal.vote_end > self.env().block_timestamp() {
+                return ProposalState::Active
+            }
+
+            //TODO: add voting check!!
+            //ProposalState::Defeated
+            //or
+            ProposalState::Succeeded
         }
 
         #[ink(message)]
@@ -248,12 +273,17 @@ pub mod governor {
     mod tests {
         use ink_lang as ink;
 
+        
         #[allow(unused_imports)]
         use crate::governor::{
+            ProposalState,
             Governor,
             Transaction,
-            OperationId
+            OperationId,
+            Timestamp,
+            AccountId
         };        
+    
 
         #[ink::test]
         fn default_works() {
@@ -287,8 +317,10 @@ pub mod governor {
 
         #[ink::test]
         fn proposal_deadline_works() {
-            let governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
-            assert_eq!(governor.proposal_deadline(0),ink_env::block_number::<ink_env::DefaultEnvironment>());
+            let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
+            let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
+           
+            assert_eq!(governor.proposal_deadline(id),691200)
         }
 
         #[ink::test]
@@ -303,11 +335,13 @@ pub mod governor {
             assert_eq!(governor.proposal_votes(0), 0);
         }
 
-        #[ink::test]
-        fn state_works() {
-            let governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
-            assert_eq!(governor.state(0), false);
-        }
+        //#[ink::test]
+        //fn state_works() {
+        //    let governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
+        //    
+        //    
+        //    assert_eq!(governor.state(OperationId::default()), ProposalState::Pending);
+        //}
 
         #[ink::test]
         fn voting_delay_works() {
@@ -333,11 +367,17 @@ pub mod governor {
             assert!(governor.execute(0).is_ok())
         }
 
-        // #[ink::test]
-        // fn propose_works() {
-        //     let governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
-        //     assert!(governor.propose(0).is_ok())
-        // }
+        #[ink::test]
+        fn propose_works() {
+            let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
+            let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
+            assert_eq!(governor.state(id), ProposalState::Pending);
+        
+            let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
+            assert_eq!(emitted_events.len(), 1);    
+            //TODO: add verification of actual event and its content!
+        
+        }
 
         #[ink::test]
         fn hash_proposal_works() {

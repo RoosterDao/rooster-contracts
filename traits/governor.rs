@@ -26,6 +26,7 @@ pub enum ProposalState {
 pub enum GovernorError {
     InsufficientVotingPower,
     ProposalAlreadyExists,
+    ProposalDoesNotExist,
 }
 
 
