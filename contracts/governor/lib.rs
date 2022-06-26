@@ -191,15 +191,23 @@ pub mod governor {
         }
 
         #[ink(message)]        
-        pub fn proposal_snapshot(&self, proposal_id: u128) -> BlockNumber {
-            ink_env::debug_println!("proposal_snapshot: proposal_id={}", proposal_id);
-            ink_env::block_number::<ink_env::DefaultEnvironment>()
+        pub fn proposal_snapshot(&self, proposal_id: OperationId) -> Timestamp {
+            assert!(self.proposals.contains(&proposal_id), "Proposal does noet exist");
+            
+            let proposal = self.proposals.get(&proposal_id).unwrap();
+
+            proposal.vote_start
+
         }
 
         #[ink(message)]
-        pub fn proposal_votes(&self, proposal_id: u128) -> u32 {
-            ink_env::debug_println!("proposal_votes: proposal_id={}", proposal_id);
-            0
+        pub fn proposal_votes(&self, proposal_id: OperationId) -> (u32,u32,u32) {
+            assert!(self.votes.contains(&proposal_id), "Proposal does noet exist");
+            
+            let proposal = self.votes.get(&proposal_id).unwrap();
+
+            (proposal.votes_against, proposal.votes_for, proposal.votes_abstain)
+
         }
 
         #[ink(message)]
@@ -380,16 +388,30 @@ pub mod governor {
 
         #[ink::test]
         fn proposal_snapshot_works() {
-            let governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
-            assert_eq!(governor.proposal_snapshot(0),ink_env::block_number::<ink_env::DefaultEnvironment>());
+            let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
+            let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
+           
+            assert_eq!(governor.proposal_snapshot(id),86400)
+
         }
 
         #[ink::test]
         fn proposal_votes_works() {
-            let governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
-            assert_eq!(governor.proposal_votes(0), 0);
+            let mut governor = Governor::new(Some(String::from("Governor")),0,604800,86400);
+            let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
+            let vote_result = governor.cast_vote(id, VoteType::For);
+            assert!(vote_result.is_ok());
+
+            let (votes_against, votes_for, votes_abstain) = governor.proposal_votes(id);
+            assert_eq!(votes_for,1);
+            assert_eq!(votes_abstain,0);
+            assert_eq!(votes_against,0); 
+
+            //TODO: add more test when change_caller works 
+
         }
 
+        //tested in propose_works
         //#[ink::test]
         //fn state_works() {
         //    let governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
