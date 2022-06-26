@@ -28,7 +28,11 @@ pub mod governor {
 
     #[ink(event)]
     pub struct ProposalCreated {
-        proposal_id: OperationId ,
+        #[ink(topic)]
+        proposal_id: OperationId,
+        //#[ink(topic)]
+        //proposer: AccountId,
+        //transaction: Transaction,
     }
    
 
