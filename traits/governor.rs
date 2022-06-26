@@ -13,7 +13,10 @@ use openbrush::{
     //     RawMapping
     // },
 
-    traits::AccountId,
+    traits::{
+        AccountId,
+        BlockNumber,
+    },
 };
 
 #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -37,6 +40,7 @@ pub enum GovernorError {
     ProposalDoesNotExist,
     NotOpenForVoting,
     HasAlreadyVoted,
+    VoteHasNotSucceeded,
     
 }
 
@@ -75,9 +79,45 @@ pub struct ProposalCore {
 
 #[openbrush::trait_definition]
 pub trait Governor {
+    //read functions
+    #[ink(message)]
+    fn get_votes(&self, account: AccountId, blocknumber_o: Option<BlockNumber>) -> u32;
+
+    #[ink(message)]
+    fn has_voted(&self, proposal_id: OperationId, account: AccountId) -> bool;
+
     #[ink(message)]
     fn name(&self) -> String;
 
     #[ink(message)]
+    fn proposal_deadline(&self, proposal_id: OperationId) -> Timestamp;
+
+    #[ink(message)]        
+    fn proposal_snapshot(&self, proposal_id: OperationId) -> Timestamp;
+
+    #[ink(message)]
+    fn proposal_votes(&self, proposal_id: OperationId) -> (u32,u32,u32);
+        
+    #[ink(message)]
+    fn state(&self, proposal_id: OperationId) -> ProposalState;
+
+    #[ink(message)]
+    fn voting_delay(&self) -> Timestamp;
+
+    #[ink(message)]
+    fn voting_period(&self) -> Timestamp;
+
+    #[ink(message)]
     fn hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId;
+
+
+    //write functions
+    #[ink(message)]
+    fn cast_vote(&mut self, proposal_id: OperationId, vote: VoteType, ) -> Result<(),GovernorError>;
+
+    #[ink(message)]
+    fn execute(&mut self, proposal_id: OperationId) -> Result<(), GovernorError>;
+
+    #[ink(message)]
+    fn propose(&mut self, transaction: Transaction, description: String) -> Result<OperationId, GovernorError>;
 }
