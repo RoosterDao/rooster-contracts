@@ -31,6 +31,15 @@ pub mod governor {
         vote_start: Timestamp,
         vote_end: Timestamp,
     }
+
+    #[ink(event)]
+    pub struct VoteCast {
+        #[ink(topic)]
+        voter: AccountId,
+        #[ink(topic)]
+        proposal_id: OperationId,
+        vote: VoteType,
+    }
    
 
     #[ink(storage)]
@@ -95,6 +104,19 @@ pub mod governor {
              })
         }
 
+        fn _emit_vote_cast(
+            &self,
+            voter: AccountId,
+            proposal_id: OperationId,
+            vote: VoteType,
+        ) {
+            self.env()
+            .emit_event( VoteCast {
+                voter,
+                proposal_id,
+                vote
+            })
+        }
 
         fn _hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId {
             TimelockController::hash_operation(self, transaction,None, description_hash)
@@ -152,6 +174,8 @@ pub mod governor {
 
             vote_status.has_voted.push(caller);
             self.votes.insert(&proposal_id, &vote_status);
+
+            self._emit_vote_cast(caller,proposal_id,vote);
 
             Ok(())
             
@@ -436,11 +460,16 @@ pub mod governor {
         fn cast_vote_works() {
             let mut governor = Governor::new(Some(String::from("Governor")),0,604800,86400);
             let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
+            let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
+            assert_eq!(emitted_events.len(), 1);    
+            
             let vote_result = governor.cast_vote(id, VoteType::For);
             assert!(vote_result.is_ok());
             
+            let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
+            assert_eq!(emitted_events.len(), 2);    
+            //TODO: add verification of actual event and its content!
             
-            //assert!(governor.cast_vote(0).is_ok())
         }
 
         #[ink::test]
