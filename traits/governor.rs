@@ -23,10 +23,9 @@ pub enum ProposalState {
 
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq, Eq, Copy, Clone)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-pub enum MockError {
-    NotOwner,
-    NotApproved,
-    NotAllowed,
+pub enum GovernorError {
+    InsufficientVotingPower,
+    ProposalAlreadyExists,
 }
 
 

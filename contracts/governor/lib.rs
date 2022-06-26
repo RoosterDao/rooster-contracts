@@ -12,12 +12,6 @@ pub mod governor {
 
     use ink_env::hash::Blake2x256;
     
-
-    // use ink_lang::codegen::{
-    //     EmitEvent,
-    //     Env,
-    // };
-
     use openbrush::{
         storage::Mapping,
         contracts::timelock_controller::*,
@@ -65,14 +59,13 @@ pub mod governor {
                 instance.voting_period = voting_period;
 
                 let caller = instance.env().caller();
-                
-                //TODO: specify nobody as proposer, contract address as executor
-                let cal_vec = vec![caller];
+                let callee = instance.env().account_id();
+                let calee_vec = vec![callee];
                 
                 // `TimelockController` and `AccessControl` have `_init_with_admin` methods.
                 // You need to call it for each trait separately, to initialize everything for these traits.
                 AccessControlInternal::_init_with_admin(instance, caller);
-                TimelockControllerInternal::_init_with_admin(instance, caller, execution_delay, cal_vec.clone(), cal_vec);
+                TimelockControllerInternal::_init_with_admin(instance, caller, execution_delay, calee_vec.clone(), calee_vec);
    
             })
         }
@@ -111,13 +104,23 @@ pub mod governor {
             
         }
 
+        fn _get_votes(&self, account: AccountId, blocknumber_o: Option<BlockNumber>) -> u32 {
+            let blocknumber = match blocknumber_o {
+                None => self.env().block_number(),
+                Some(bn) => bn
+            };
+            //TODO: call manager contract
+            
+            ink_env::debug_println!("getVotes: account={:?} blocknumber={:?}", account, blocknumber);
+            1
+        }
+
 
         //////////////////////////////
         /// Governor read functions
         #[ink(message)]
-        pub fn get_votes(&self, account: AccountId, blocknumber: BlockNumber) -> u32 {
-            ink_env::debug_println!("getVotes: account={:?} blocknumber={:?}", account, blocknumber);
-            0
+        pub fn get_votes(&self, account: AccountId, blocknumber_o: Option<BlockNumber>) -> u32 {
+            self._get_votes(account,blocknumber_o)
         }
 
         #[ink(message)]
@@ -157,15 +160,15 @@ pub mod governor {
         }
 
         #[ink(message)]
-        pub fn voting_delay(&self) -> u32 {
+        pub fn voting_delay(&self) -> Timestamp {
             ink_env::debug_println!("voting_delay");
-            0
+            self.voting_delay
         }
 
         #[ink(message)]
-        pub fn voting_period(&self) -> u32 {
+        pub fn voting_period(&self) -> Timestamp {
             ink_env::debug_println!("voting_period");
-            0
+            self.voting_period
         }
 
         // #[ink(message)]
@@ -184,21 +187,39 @@ pub mod governor {
         //////////////////////////////
         /// Governor write functions
         #[ink(message)]
-        pub fn cast_vote(&self, proposal_id: u128) -> Result<(),MockError> {
+        pub fn cast_vote(&self, proposal_id: u128) -> Result<(),GovernorError> {
             ink_env::debug_println!("cast_vote: proposal_id={}", proposal_id);
             Ok(())
         }
 
         #[ink(message)]
-        pub fn execute(&self, proposal_id: u128) -> Result<(), MockError> {
+        pub fn execute(&self, proposal_id: u128) -> Result<(), GovernorError> {
             ink_env::debug_println!("execute: proposal_id={}", proposal_id);
             Ok(())
         }
 
         #[ink(message)]
-        pub fn propose(&mut self, transaction: Transaction, description: String) -> Result<OperationId, MockError>  {
+        pub fn propose(
+            &mut self, 
+            transaction: Transaction, 
+            description: String
+        ) -> Result<OperationId, GovernorError>  {
+
+            // does the caller have required voting power?
+            let caller = self.env().caller();
+            let voting_power = self._get_votes(caller, None);
+            if voting_power < 1 {
+                return Err(GovernorError::InsufficientVotingPower)
+            }            
+            
             let description_hash = self._hash_description(description.clone());
             let proposal_id = self._hash_proposal(transaction.clone(), description_hash);
+
+            // is this a new proposal
+            if self.proposals.contains(&proposal_id) {
+                return Err(GovernorError::ProposalAlreadyExists)
+            }
+
 
             let proposal = ProposalCore {
                 vote_start: self.env().block_timestamp() + self.voting_delay,
@@ -247,7 +268,7 @@ pub mod governor {
             let block_number = ink_env::block_number::<ink_env::DefaultEnvironment>();
             let accounts =
                 ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            assert_eq!(governor.get_votes(accounts.alice, block_number),0);
+            assert_eq!(governor.get_votes(accounts.alice, Some(block_number)),1);
         }
 
         #[ink::test]
@@ -291,13 +312,13 @@ pub mod governor {
         #[ink::test]
         fn voting_delay_works() {
             let governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
-            assert_eq!(governor.voting_delay(),0);
+            assert_eq!(governor.voting_delay(),86400);
         }
 
         #[ink::test]
         fn voting_period_works() {
             let governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
-            assert_eq!(governor.voting_period(),0);
+            assert_eq!(governor.voting_period(),604800);
         }
 
         #[ink::test]
