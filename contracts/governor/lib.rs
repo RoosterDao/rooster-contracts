@@ -40,6 +40,7 @@ pub mod governor {
         timelock: TimelockControllerData,
         name: Option<String>,
         proposals: Mapping<OperationId, ProposalCore>,
+        votes: Mapping<OperationId, ProposalVote>,
         voting_delay: Timestamp,
         voting_period: Timestamp,
     }
@@ -115,6 +116,46 @@ pub mod governor {
             1
         }
 
+        fn _cast_vote(
+            &mut self, 
+            proposal_id: OperationId, 
+            vote: VoteType, 
+        )  -> Result<(),GovernorError> {
+            // does the caller have required voting power?
+            let caller = self.env().caller();
+            let voting_power = self._get_votes(caller, None);
+            if voting_power < 1 {
+                return Err(GovernorError::InsufficientVotingPower)
+            }       
+
+            //does the proposal exist?
+            if !self.proposals.contains(&proposal_id) {
+                return Err(GovernorError::ProposalDoesNotExist)
+            }
+
+            if self.state(proposal_id) != ProposalState::Active {
+                return Err(GovernorError::NotOpenForVoting)
+            }
+
+            let mut vote_status = self.votes.get(&proposal_id).unwrap();
+
+            if vote_status.has_voted.contains(&caller) {
+                return Err(GovernorError::HasAlreadyVoted)
+            }
+            //let proposal = self.proposals.get(&proposal_id).unwrap();
+
+            match vote {
+                VoteType::Against => vote_status.votes_against += voting_power,
+                VoteType::For     => vote_status.votes_for     += voting_power,
+                VoteType::Abstain => vote_status.votes_abstain += voting_power,
+            };
+
+            vote_status.has_voted.push(caller);
+            self.votes.insert(&proposal_id, &vote_status);
+
+            Ok(())
+            
+        }
 
         //////////////////////////////
         /// Governor read functions
@@ -124,9 +165,13 @@ pub mod governor {
         }
 
         #[ink(message)]
-        pub fn has_voted(&self, proposal_id: u128, account: AccountId) -> bool {
-            ink_env::debug_println!("has_voted: proposal_id={}, account={:?}",proposal_id, account);
-            false
+        pub fn has_voted(&self, proposal_id: OperationId, account: AccountId) -> bool {
+            if !self.votes.contains(&proposal_id) {
+                return false;
+            }
+            let vote_status = self.votes.get(&proposal_id).unwrap();
+
+            vote_status.has_voted.contains(&account)
         }
 
         #[ink(message)]
@@ -212,9 +257,12 @@ pub mod governor {
         //////////////////////////////
         /// Governor write functions
         #[ink(message)]
-        pub fn cast_vote(&self, proposal_id: u128) -> Result<(),GovernorError> {
-            ink_env::debug_println!("cast_vote: proposal_id={}", proposal_id);
-            Ok(())
+        pub fn cast_vote(
+            &mut self, 
+            proposal_id: OperationId,
+            vote: VoteType,
+        ) -> Result<(),GovernorError> {
+            self._cast_vote(proposal_id, vote)
         }
 
         #[ink(message)]
@@ -254,6 +302,7 @@ pub mod governor {
             };
 
             self.proposals.insert(&proposal_id, &proposal);
+            self.votes.insert(&proposal_id, &ProposalVote::default());
 
             self
             ._emit_proposal_created(
@@ -272,8 +321,8 @@ pub mod governor {
 
     mod tests {
         use ink_lang as ink;
+        use openbrush::test_utils::change_caller;
 
-        
         #[allow(unused_imports)]
         use crate::governor::{
             ProposalState,
@@ -281,7 +330,8 @@ pub mod governor {
             Transaction,
             OperationId,
             Timestamp,
-            AccountId
+            AccountId,
+            VoteType
         };        
     
 
@@ -303,10 +353,15 @@ pub mod governor {
 
         #[ink::test]
         fn has_voted_works() {
-            let governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
             let accounts =
                 ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            assert_eq!(governor.has_voted(0, accounts.alice), false);
+            change_caller(accounts.alice);
+            let mut governor = Governor::new(Some(String::from("Governor")),0,604800,86400);
+            let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
+            assert!(governor.cast_vote(id, VoteType::For).is_ok());
+
+            assert!(governor.has_voted(id, accounts.alice));
+            assert!(!governor.has_voted(id, accounts.bob));
         }
 
         #[ink::test]
@@ -357,8 +412,13 @@ pub mod governor {
 
         #[ink::test]
         fn cast_vote_works() {
-            let governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
-            assert!(governor.cast_vote(0).is_ok())
+            let mut governor = Governor::new(Some(String::from("Governor")),0,604800,86400);
+            let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
+            let vote_result = governor.cast_vote(id, VoteType::For);
+            assert!(vote_result.is_ok());
+            
+            
+            //assert!(governor.cast_vote(0).is_ok())
         }
 
         #[ink::test]

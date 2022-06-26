@@ -20,7 +20,8 @@ scale-info = { version = "2", default-features = false, features = ["derive"], o
 #openbrush = { path = "../../..", default-features = false, features = ["pausable", "access_control"] }
 roosterdao = { path = "../..", default-features = false }
 
-openbrush = { version="~2.1.0", default-features = false, features = ["pausable", "access_control", "timelock_controller"] }
+openbrush = { version="~2.1.0", default-features = false } #, features = ["pausable", "access_control", "timelock_controller", "test_utils"] }
+#openbrush_lang = { version = "~2.1.0", default-features = false }
 
 [lib]
 name = "governor_contract"
