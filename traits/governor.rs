@@ -36,10 +36,10 @@ use ink_storage::traits::StorageLayout;
 #[derive(Default, Debug, Clone, scale::Encode, scale::Decode, SpreadLayout, PackedLayout)]
 #[cfg_attr(feature = "std", derive(StorageLayout, scale_info::TypeInfo))]
 pub struct ProposalCore {
-    vote_start: Timestamp,
-    vote_end:   Timestamp,
-    executed: bool,
-    canceled: bool,
+    pub vote_start: Timestamp,
+    pub vote_end:   Timestamp,
+    pub executed: bool,
+    pub canceled: bool,
 }
 
 #[openbrush::trait_definition]
