@@ -160,6 +160,7 @@ pub mod governor {
             }
 
             let mut vote_status = self.votes.get(&proposal_id).unwrap();
+            ink_env::debug_println!("_cast_vote: id={:?}", vote_status);
 
             if vote_status.has_voted.contains(&caller) {
                 return Err(GovernorError::HasAlreadyVoted)
@@ -371,7 +372,12 @@ pub mod governor {
 
     mod tests {
         use ink_lang as ink;
-        //use openbrush::test_utils::change_caller;
+
+        #[cfg(feature = "std")]
+        use openbrush::test_utils::{
+            change_caller,
+            accounts
+        };
 
         #[allow(unused_imports)]
         use crate::governor::{
@@ -405,12 +411,12 @@ pub mod governor {
         fn has_voted_works() {
             let accounts =
                 ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            //change_caller(accounts.alice);
+            change_caller(accounts.alice);
             let mut governor = Governor::new(Some(String::from("Governor")),0,604800,86400);
             let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
             assert!(governor.cast_vote(id, VoteType::For).is_ok());
 
-            //assert!(governor.has_voted(id, accounts.alice));
+            assert!(governor.has_voted(id, accounts.alice));
             assert!(!governor.has_voted(id, accounts.bob));
         }
 
@@ -439,17 +445,35 @@ pub mod governor {
 
         #[ink::test]
         fn proposal_votes_works() {
+            let accounts = accounts();
+//                ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
             let mut governor = Governor::new(Some(String::from("Governor")),0,604800,86400);
             let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
             let vote_result = governor.cast_vote(id, VoteType::For);
             assert!(vote_result.is_ok());
 
+            change_caller(accounts.charlie);
             let (votes_against, votes_for, votes_abstain) = governor.proposal_votes(id);
             assert_eq!(votes_for,1);
             assert_eq!(votes_abstain,0);
             assert_eq!(votes_against,0); 
 
-            //TODO: add more test when change_caller works 
+            change_caller(accounts.alice);
+            let vote_result = governor.cast_vote(id, VoteType::Abstain);
+            ink_env::debug_println!("vote_result: vote_result={:?}", vote_result);
+            // assert!(vote_result.is_ok());
+            // let (votes_against, votes_for, votes_abstain) = governor.proposal_votes(id);
+            // assert_eq!(votes_for,1);
+            // assert_eq!(votes_abstain,1);
+            // assert_eq!(votes_against,0); 
+
+            // change_caller(accounts.bob);
+            // let vote_result = governor.cast_vote(id, VoteType::Against);
+            // assert!(vote_result.is_ok());
+            // let (votes_against, votes_for, votes_abstain) = governor.proposal_votes(id);
+            // assert_eq!(votes_for,1);
+            // assert_eq!(votes_abstain,1);
+            // assert_eq!(votes_against,1); 
 
         }
 
