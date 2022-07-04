@@ -41,7 +41,7 @@ pub enum GovernorError {
     NotOpenForVoting,
     HasAlreadyVoted,
     VoteHasNotSucceeded,
-    
+    NotOwner,
 }
 
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq, Eq, Copy, Clone)]
