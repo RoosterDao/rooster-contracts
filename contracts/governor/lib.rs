@@ -251,11 +251,8 @@ pub mod governor {
 
         //////////////////////////////
         /// Governor read functions
-        #[ink(message)]
-        pub fn get_votes(&self, account: AccountId, blocknumber_o: Option<BlockNumber>) -> u32 {
-            self._get_votes(account,blocknumber_o)
-        }
-
+        /// 
+        
         #[ink(message)]
         pub fn has_voted(&self, proposal_id: OperationId, account: AccountId) -> bool {
             if !self.votes.contains(&proposal_id) {
@@ -355,6 +352,18 @@ pub mod governor {
         }
 
         
+        /// ERC721Votes read functions
+        #[ink(message)] 
+        pub fn get_past_votes(&self, account: AccountId, block: BlockNumber) -> u32 {
+            self._get_votes(account, Some(block))
+        }
+
+        #[ink(message)]
+        pub fn get_votes(&self, account: AccountId) -> u32 {
+            self._get_votes(account, None)
+        }
+
+
 
         //////////////////////////////
         /// Governor write functions
@@ -474,12 +483,12 @@ pub mod governor {
             change_caller(accounts.bob);
 
             let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
-            let block_number = ink_env::block_number::<ink_env::DefaultEnvironment>();
+            //let block_number = ink_env::block_number::<ink_env::DefaultEnvironment>();
             //ink_env::debug_println!("get_votest_works: account={:?}", accounts.bob);
 
             assert!(governor.delegate(accounts.bob).is_ok());
 
-            assert_eq!(governor.get_votes(accounts.bob, Some(block_number)),1);
+            assert_eq!(governor.get_votes(accounts.bob),1);
         }
 
         #[ink::test]
@@ -654,21 +663,45 @@ pub mod governor {
         }
 
 
-        // #[ink::test]
-        // fn delegate_works() {
-        //     let accounts = accounts();
-        //     change_caller(accounts.bob);
+        #[ink::test]
+        fn delegate_works() {
+            let accounts = accounts();
+            
 
-        //     let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
+            let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
 
-        //     change_caller(accounts.bob);
-        //     assert!(governor.delegate(accounts.bob).is_ok());
+            change_caller(accounts.bob);
+            assert!(governor.delegate(accounts.bob).is_ok());
+            assert_eq!(governor.get_votes(accounts.bob), 1);
+            
+            advance_block();
+            assert!(governor.delegate(accounts.eve).is_ok());
+            assert_eq!(governor.get_votes(accounts.bob), 0);
+            assert_eq!(governor.get_votes(accounts.eve), 1);
 
-        // }
+            advance_block();
+            change_caller(accounts.eve);
+            assert!(governor.delegate(accounts.eve).is_ok());
+            assert_eq!(governor.get_votes(accounts.bob), 0);
+            assert_eq!(governor.get_votes(accounts.eve), 2);
 
-        // fn advance_block() {
-        //     let _ = ink_env::test::advance_block::<ink_env::DefaultEnvironment>();
-        // }
+            advance_block();
+            change_caller(accounts.alice);
+            assert!(governor.delegate(accounts.eve).is_ok());
+            assert_eq!(governor.get_votes(accounts.bob), 0);
+            assert_eq!(governor.get_votes(accounts.eve), 3);
+            assert_eq!(governor.get_votes(accounts.alice), 0);
+            
+
+
+        }
+
+        
+        
+        #[cfg(feature = "std")]
+        fn advance_block() {
+            let _ = ink_env::test::advance_block::<ink_env::DefaultEnvironment>();
+        }
 
     }
 
