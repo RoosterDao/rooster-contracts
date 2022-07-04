@@ -150,7 +150,7 @@ pub mod governor {
         }
 
         fn _get_votes(&self, account: AccountId, blocknumber_o: Option<BlockNumber>) -> u32 {
-            let blocknumber = match blocknumber_o {
+            let block_limit = match blocknumber_o {
                 None => self.env().block_number(),
                 Some(bn) => bn
             };
@@ -158,6 +158,10 @@ pub mod governor {
             let mut result : u32 = 0;
             let mut already_seen : Vec<AccountId> = Default::default();
             for block in self.delegation_blocks.iter().rev() {
+                if block > &block_limit {
+                    continue;
+                }
+
                 let (cur_delegator, cur_delegatee) = self.delegations.get(&block).unwrap();
                 if !already_seen.contains(&cur_delegator) {
                     already_seen.push(cur_delegator);
@@ -167,7 +171,7 @@ pub mod governor {
                 }
             }
             
-            ink_env::debug_println!("getVotes: blocknumber={:?} account={:?} result={:?}", blocknumber, account, result);
+            ink_env::debug_println!("getVotes: blocknumber={:?} account={:?} result={:?}", block_limit, account, result);
             result
         }
 
@@ -648,6 +652,23 @@ pub mod governor {
             ink_env::debug_println!("hash_proposal: id={:?}", id.clone());
             assert_ne!(id,OperationId::default())
         }
+
+
+        // #[ink::test]
+        // fn delegate_works() {
+        //     let accounts = accounts();
+        //     change_caller(accounts.bob);
+
+        //     let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
+
+        //     change_caller(accounts.bob);
+        //     assert!(governor.delegate(accounts.bob).is_ok());
+
+        // }
+
+        // fn advance_block() {
+        //     let _ = ink_env::test::advance_block::<ink_env::DefaultEnvironment>();
+        // }
 
     }
 
