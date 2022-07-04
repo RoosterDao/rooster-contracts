@@ -6,6 +6,8 @@
 pub mod governor {
     use ink_storage::traits::SpreadAllocate;
     use ink_prelude::vec;
+    use ink_prelude::vec::Vec;
+    
     use ink_prelude::string::{
         String,
     };
