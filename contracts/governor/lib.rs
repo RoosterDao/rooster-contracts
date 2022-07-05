@@ -42,7 +42,21 @@ pub mod governor {
         proposal_id: OperationId,
         vote: VoteType,
     }
-    
+
+    #[ink(event)]
+    pub struct DelegateChanged {
+        #[ink(topic)]
+        delegator: AccountId,
+        from_delegatee: AccountId,
+        to_delegatee: AccountId,
+    }
+
+    #[ink(event)]
+    pub struct DelegateVotesChanged {
+        #[ink(topic)]
+        delegatee: AccountId,
+        votes: u32,
+    }
 
     #[ink(storage)]
     #[derive(Default,SpreadAllocate,TimelockControllerStorage)]
@@ -121,6 +135,52 @@ pub mod governor {
                 proposal_id,
                 vote
             })
+        }
+
+
+        fn _emit_delegate_changed(
+            &self,
+            delegator: AccountId,
+            to_delegatee: AccountId,
+        ) {
+
+            // we need to figure out previous delegatee for delegator
+            let mut seen_first = false;
+            let mut from_delegatee : AccountId = Default::default();
+            for block in self.delegation_blocks.iter().rev() {
+                let (cur_delegator, cur_delegatee) = self.delegations.get(&block).unwrap();
+                if cur_delegator == delegator {
+                    if seen_first {
+                        seen_first = false;
+                    } else {
+                        from_delegatee = cur_delegatee;
+                        break;
+                    }
+                }
+            }
+            
+            self.env()
+            .emit_event (
+                DelegateChanged {
+                    delegator,
+                    from_delegatee,
+                    to_delegatee,
+                })
+        }
+
+        fn _emit_delegate_votes_changed(
+            &self,
+            delegatee: AccountId
+        ) {
+            let votes = self._get_votes(delegatee, None);
+
+            self.env()
+            .emit_event (
+                DelegateVotesChanged {
+                    delegatee,
+                    votes
+                })
+
         }
 
         fn _hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId {
@@ -441,6 +501,8 @@ pub mod governor {
                 self.delegation_blocks.push(current_block);
             }
         
+            self._emit_delegate_changed(caller, delegatee);
+            self._emit_delegate_votes_changed(delegatee);
 
            Ok(())
         }
@@ -616,6 +678,8 @@ pub mod governor {
 
             let mut governor = Governor::new(Some(String::from("Governor")),0,604800,86400);
             assert!(governor.delegate(accounts.bob).is_ok());
+            let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
+            assert_eq!(emitted_events.len(), 2);    
 
             let id : OperationId = Default::default();
             assert_eq!(governor.cast_vote(id, VoteType::For),
@@ -626,14 +690,14 @@ pub mod governor {
             ink_env::debug_println!("proposal_id = {:?}", id);
             
             let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
-            assert_eq!(emitted_events.len(), 1);    
+            assert_eq!(emitted_events.len(), 3);    
             
             let vote_result = governor.cast_vote(id, VoteType::For);
             assert!(vote_result.is_ok());
             assert_eq!(governor.cast_vote(id, VoteType::For),Err(GovernorError::HasAlreadyVoted));
             
             let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
-            assert_eq!(emitted_events.len(), 2);    
+            assert_eq!(emitted_events.len(), 4);    
             //TODO: add verification of actual event and its content!
 
             change_caller(accounts.eve);
@@ -654,11 +718,15 @@ pub mod governor {
 
             let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
             assert!(governor.delegate(accounts.bob).is_ok());
+            let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
+            assert_eq!(emitted_events.len(), 2);    
+
+
             let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
             assert_eq!(governor.state(id), ProposalState::Pending);
         
             let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
-            assert_eq!(emitted_events.len(), 1);    
+            assert_eq!(emitted_events.len(), 3);    
             //TODO: add verification of actual event and its content!
 
             assert_eq!(governor.propose(Transaction::default(), "test proposal".to_string()), 
@@ -736,7 +804,8 @@ pub mod governor {
         }
 
         
-        
+ 
+        #[allow(dead_code)]
         #[cfg(feature = "std")]
         fn advance_block() {
             let _ = ink_env::test::advance_block::<ink_env::DefaultEnvironment>();
