@@ -42,7 +42,7 @@ pub mod governor {
         proposal_id: OperationId,
         vote: VoteType,
     }
-   
+    
 
     #[ink(storage)]
     #[derive(Default,SpreadAllocate,TimelockControllerStorage)]
@@ -54,7 +54,7 @@ pub mod governor {
         votes: Mapping<OperationId, ProposalVote>,
         voting_delay: Timestamp,
         voting_period: Timestamp,
-        // Temporary implementation (awaiting Mapping iter())
+        // Temporary implementation 
         delegations: Mapping<BlockNumber, (AccountId, AccountId)>,
         delegation_blocks: Vec<BlockNumber>
     }
@@ -139,7 +139,7 @@ pub mod governor {
         /// 
         /// 
         ///    `NotOwner` if not 
-        fn _has_required_nft(&self, account: AccountId) -> Result<(),GovernorError> {
+        fn _has_required_nft(&self, _account: AccountId) -> Result<(),GovernorError> {
             //TODO: call chain extension
 
             //if not owner {
@@ -183,7 +183,7 @@ pub mod governor {
         fn _has_voting_power(&self, caller: AccountId) -> Result<(),GovernorError> {
            let voting_power = self._get_votes(caller, None);
            if voting_power < 1 {
-               return Err(GovernorError::InsufficientVotingPower)
+               Err(GovernorError::InsufficientVotingPower)
            }  else {
             Ok(())
            }
@@ -423,7 +423,6 @@ pub mod governor {
                 proposal.vote_end
             );
 
-            //ink_env::debug_println!("propose: proposal_id={}", proposal_id);
             Ok(proposal_id)
         }
 
@@ -466,7 +465,8 @@ pub mod governor {
             OperationId,
             Timestamp,
             AccountId,
-            VoteType
+            VoteType,
+            GovernorError,
         };        
     
 
@@ -617,17 +617,27 @@ pub mod governor {
             let mut governor = Governor::new(Some(String::from("Governor")),0,604800,86400);
             assert!(governor.delegate(accounts.bob).is_ok());
 
+            let id : OperationId = Default::default();
+            assert_eq!(governor.cast_vote(id, VoteType::For),
+                       Err(GovernorError::ProposalDoesNotExist));
+
+
             let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
+            ink_env::debug_println!("proposal_id = {:?}", id);
             
             let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
             assert_eq!(emitted_events.len(), 1);    
             
             let vote_result = governor.cast_vote(id, VoteType::For);
             assert!(vote_result.is_ok());
+            assert_eq!(governor.cast_vote(id, VoteType::For),Err(GovernorError::HasAlreadyVoted));
             
             let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
             assert_eq!(emitted_events.len(), 2);    
             //TODO: add verification of actual event and its content!
+
+            change_caller(accounts.eve);
+            assert_eq!(governor.cast_vote(id, VoteType::For),Err(GovernorError::InsufficientVotingPower));
             
         }
 
@@ -650,6 +660,9 @@ pub mod governor {
             let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
             assert_eq!(emitted_events.len(), 1);    
             //TODO: add verification of actual event and its content!
+
+            assert_eq!(governor.propose(Transaction::default(), "test proposal".to_string()), 
+                       Err(GovernorError::ProposalAlreadyExists));
         
         }
 
@@ -691,9 +704,35 @@ pub mod governor {
             assert_eq!(governor.get_votes(accounts.bob), 0);
             assert_eq!(governor.get_votes(accounts.eve), 3);
             assert_eq!(governor.get_votes(accounts.alice), 0);
+        }
+
+        #[ink::test]
+        fn get_past_votes_works() {
+            let accounts = accounts();
+
+            let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
+
+            change_caller(accounts.bob);
+            assert!(governor.delegate(accounts.bob).is_ok());
+            assert_eq!(governor.get_votes(accounts.bob), 1);
+            let block_number_1 = ink_env::block_number::<ink_env::DefaultEnvironment>();
+
+            advance_block();
+            assert!(governor.delegate(accounts.eve).is_ok());
+            assert_eq!(governor.get_votes(accounts.bob), 0);
+            assert_eq!(governor.get_votes(accounts.eve), 1);
             
+            let block_number_2 = ink_env::block_number::<ink_env::DefaultEnvironment>();
+
+            advance_block();
+            change_caller(accounts.eve);
+            assert!(governor.delegate(accounts.eve).is_ok());
+            assert_eq!(governor.get_votes(accounts.bob), 0);
+            assert_eq!(governor.get_votes(accounts.eve), 2);
 
 
+            assert_eq!(governor.get_past_votes(accounts.bob, block_number_1), 1);
+            assert_eq!(governor.get_past_votes(accounts.eve, block_number_2), 1);
         }
 
         
