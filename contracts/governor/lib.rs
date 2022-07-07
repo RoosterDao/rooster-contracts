@@ -486,6 +486,7 @@ pub mod governor {
             Ok(proposal_id)
         }
 
+        #[ink(message)]
         pub fn delegate(
             &mut self,
             delegatee: AccountId
