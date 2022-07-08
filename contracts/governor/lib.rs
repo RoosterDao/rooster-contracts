@@ -5,6 +5,7 @@
 
 use ink_env::{AccountId, Environment};
 use ink_lang as ink;
+use ink_prelude::vec::Vec;
 
 #[derive(scale::Encode, scale::Decode, Debug)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -100,13 +101,13 @@ impl Environment for CustomEnvironment {
     type ChainExtension = RmrkExt;
 }
 
-#[openbrush::contract]
+#[openbrush::contract(env = crate::CustomEnvironment)]
 pub mod governor {
     use ink_storage::traits::SpreadAllocate;
     use ink_prelude::vec;
     use ink_prelude::vec::Vec;
 
-    use super::{RCError};
+    use super::{RCError, RCErrorCode};
     
     use ink_prelude::string::{
         String,
@@ -170,7 +171,8 @@ pub mod governor {
         voting_period: Timestamp,
         // Temporary implementation 
         delegations: Mapping<BlockNumber, (AccountId, AccountId)>,
-        delegation_blocks: Vec<BlockNumber>
+        delegation_blocks: Vec<BlockNumber>,
+        collection_id: Option<u32>,
     }
 
 
@@ -195,8 +197,8 @@ pub mod governor {
                 // You need to call it for each trait separately, to initialize everything for these traits.
                 AccessControlInternal::_init_with_admin(instance, caller);
                 TimelockControllerInternal::_init_with_admin(instance, caller, execution_delay, calee_vec.clone(), calee_vec);
-   
 
+                instance._create_collection();
             })
         }
 
@@ -393,8 +395,8 @@ pub mod governor {
             
         }
 
-        fn _execute(&
-            self, 
+        fn _execute(
+            &self, 
             proposal_id: OperationId
         ) -> Result<(), GovernorError> {
             //does the proposal exist?
@@ -409,6 +411,51 @@ pub mod governor {
             //TODO: finish this....
             Ok(())
         }
+
+        
+        pub fn _create_collection_metadata(
+            &mut self,
+            metadata: String,
+            symbol: String,
+        ) -> Result<(), RCError> {
+            if self.collection_id != None {
+                return Err(RCError::ErrorCode(RCErrorCode::CollectionAlreadyCreated));
+            }
+
+            let result = self.env().extension().create_collection(
+                self.env().account_id(),
+                metadata.into_bytes(),
+                symbol.into_bytes(),
+            );
+
+            if result.is_err() {
+                return Err(RCError::ErrorCode(RCErrorCode::Failed));
+            }
+            let collection_id = result.unwrap();
+
+            match collection_id {
+                Some(cid) => self.collection_id = Some(cid),
+                None => return Err(RCError::ErrorCode(RCErrorCode::Failed)),
+            }
+
+            Ok(())
+        }
+
+
+        pub fn _create_collection(&mut self) -> Result<(), RCError> {
+            let metadata = r#"
+            {
+                "description": "Rooster DAO",
+                "attributes": [],
+                "external_url": "project_home_page_url",
+                "image": "ipfs://ipfs/QmQUKBhRG7225uJQ5bmUw1UDVxep8fYp4y94hEqCZA5yFN"
+              }"#;
+            
+              let symbol = "ROO";
+
+              self._create_collection_metadata(metadata.into(), symbol.into())
+        }
+
 
         //////////////////////////////
         /// Governor read functions
