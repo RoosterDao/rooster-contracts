@@ -177,7 +177,7 @@ pub mod governor {
 
 
     impl Governor {
-        #[ink(constructor)]
+        #[ink(constructor, payable)]
         pub fn new(
             name: Option<String>,
             voting_delay: Timestamp,
