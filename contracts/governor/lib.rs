@@ -182,7 +182,8 @@ pub mod governor {
         voting_period: Timestamp,
         // NFT
         collection_id: Option<CollectionId>,
-        owners: Mapping<AccountId, NftId>,
+        owners: Vec<AccountId>,
+        owners_nft: Mapping<AccountId, NftId>,
         owners_lvl: Mapping<AccountId, u8>,
         price: Balance,
         // Delegations (Temporary implementation)
@@ -339,7 +340,7 @@ pub mod governor {
             caller: AccountId
         ) -> Result<(),GovernorError> {
             
-            if !self.owners.contains(&caller) {
+            if !self.owners_nft.contains(&caller) {
                return Err(GovernorError::NotOwner)    
             }
 
@@ -368,7 +369,7 @@ pub mod governor {
                 }
             }
             
-            ink_env::debug_println!("getVotes: blocknumber={:?} account={:?} result={:?}", block_limit, account, result);
+            ink_env::debug_println!("_get_votes: blocknumber={:?} account={:?} result={:?}", block_limit, account, result);
             result
         }
 
@@ -500,6 +501,7 @@ pub mod governor {
         /// Governor read functions
         /// 
         
+        /// returns whether account has voted for proposal_id 
         #[ink(message)]
         pub fn has_voted(&self, proposal_id: OperationId, account: AccountId) -> bool {
             if !self.votes.contains(&proposal_id) {
@@ -587,11 +589,6 @@ pub mod governor {
             self.voting_period
         }
 
-        // #[ink(message)]
-        // pub fn hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId {
-        //     self._hash_proposal(transaction, description_hash)
-        // }
-
         #[ink(message)]
         pub fn hash_proposal(&self, transaction: Transaction, description: String) -> OperationId {
             let description_hash = self._hash_description(description);
@@ -608,6 +605,20 @@ pub mod governor {
         #[ink(message)]
         pub fn get_votes(&self, account: AccountId) -> u32 {
             self._get_votes(account, None)
+        }
+
+        #[ink(message)]
+        pub fn list_owners(&self) -> Vec<(AccountId,NftId,u32)> {
+            let mut result : Vec<(AccountId,NftId,u32)> = Vec::new();
+
+            for owner in self.owners.iter() {
+                let nft_id = self.owners_nft.get(owner).unwrap();
+                let votes = self._get_votes(*owner, None);
+
+                result.push((*owner,nft_id,votes));
+            }
+
+            result
         }
 
 
@@ -717,7 +728,7 @@ pub mod governor {
                 return Err(GovernorError::InsufficientAmount)
             }
 
-            if self.owners.contains(&caller) {
+            if self.owners_nft.contains(&caller) {
                 return Err(GovernorError::AlreadyOwner)
             }
 
@@ -737,7 +748,8 @@ pub mod governor {
                 _ => return Err(GovernorError::MintFailed)
             };
 
-            self.owners.insert(&caller, &nft_id.unwrap());
+            self.owners.push(caller);
+            self.owners_nft.insert(&caller, &nft_id.unwrap());
             self.owners_lvl.insert(&caller,&0);
 
             Ok(())
