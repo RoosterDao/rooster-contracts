@@ -107,7 +107,12 @@ pub mod governor {
     use ink_prelude::vec;
     use ink_prelude::vec::Vec;
 
-    use super::{RCError, RCErrorCode};
+    use super::{
+        RCError, 
+        RCErrorCode,
+        CollectionId,
+        NftId,
+    };
     
     use ink_prelude::string::{
         String,
@@ -172,7 +177,7 @@ pub mod governor {
         // Temporary implementation 
         delegations: Mapping<BlockNumber, (AccountId, AccountId)>,
         delegation_blocks: Vec<BlockNumber>,
-        collection_id: Option<u32>,
+        collection_id: Option<CollectionId>,
     }
 
 
@@ -302,12 +307,22 @@ pub mod governor {
         /// 
         /// 
         ///    `NotOwner` if not 
-        fn _has_required_nft(&self, _account: AccountId) -> Result<(),GovernorError> {
-            //TODO: call chain extension
+        fn _has_required_nft(
+            &self, 
+            caller: AccountId,
+            nft_id: NftId
+        ) -> Result<(),GovernorError> {
+            
+            let owner = self.env()
+            .extension()
+            .read_nft(caller, self.collection_id.unwrap(), nft_id)
+            .map_err(|_| false)
+            .unwrap();
+            
 
-            //if not owner {
-            //   return Err(GovernorError::NotOwner)    
-            //}
+            if !owner {
+               return Err(GovernorError::NotOwner)    
+            }
 
             Ok(())
         }
@@ -637,11 +652,12 @@ pub mod governor {
         #[ink(message)]
         pub fn delegate(
             &mut self,
-            delegatee: AccountId
+            delegatee: AccountId,
+            nft_id: NftId,
         ) -> Result<(),GovernorError> {
 
             let caller = self.env().caller();
-            self._has_required_nft(caller)?;
+            self._has_required_nft(caller, nft_id)?;
 
             let current_block = self.env().block_number();
             self.delegations.insert(&current_block, &(caller,delegatee));
@@ -697,7 +713,7 @@ pub mod governor {
             //let block_number = ink_env::block_number::<ink_env::DefaultEnvironment>();
             //ink_env::debug_println!("get_votest_works: account={:?}", accounts.bob);
 
-            assert!(governor.delegate(accounts.bob).is_ok());
+            assert!(governor.delegate(accounts.bob, 2).is_ok());
 
             assert_eq!(governor.get_votes(accounts.bob),1);
         }
@@ -708,7 +724,7 @@ pub mod governor {
             change_caller(accounts.alice);
             let mut governor = Governor::new(Some(String::from("Governor")),0,604800,86400);
 
-            assert!(governor.delegate(accounts.alice).is_ok());
+            assert!(governor.delegate(accounts.alice, 1).is_ok());
 
             let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
             assert!(governor.cast_vote(id, VoteType::For).is_ok());
@@ -730,7 +746,7 @@ pub mod governor {
 
             let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
 
-            assert!(governor.delegate(accounts.alice).is_ok());
+            assert!(governor.delegate(accounts.alice, 2).is_ok());
             let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
            
             assert_eq!(governor.proposal_deadline(id),691200)
@@ -742,7 +758,7 @@ pub mod governor {
             change_caller(accounts.alice);
 
             let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
-            assert!(governor.delegate(accounts.alice).is_ok());
+            assert!(governor.delegate(accounts.alice,1).is_ok());
             let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
            
             assert_eq!(governor.proposal_snapshot(id),86400)
@@ -756,7 +772,7 @@ pub mod governor {
 
             change_caller(accounts.bob);
             let mut governor = Governor::new(Some(String::from("Governor")),0,604800,86400);
-            assert!(governor.delegate(accounts.bob).is_ok());
+            assert!(governor.delegate(accounts.bob, 2).is_ok());
             let id = governor.propose(Transaction::default(), "test proposal".to_string()).unwrap();
             let vote_result = governor.cast_vote(id, VoteType::For);
             assert!(vote_result.is_ok());
@@ -767,7 +783,7 @@ pub mod governor {
             assert_eq!(votes_against,0); 
 
             change_caller(accounts.charlie);
-            assert!(governor.delegate(accounts.charlie).is_ok());
+            assert!(governor.delegate(accounts.charlie,3 ).is_ok());
             let vote_result = governor.cast_vote(id, VoteType::Abstain);
             assert!(vote_result.is_ok());
             let (votes_against, votes_for, votes_abstain) = governor.proposal_votes(id);
@@ -776,7 +792,7 @@ pub mod governor {
             assert_eq!(votes_against,0); 
 
             change_caller(accounts.eve);
-            assert!(governor.delegate(accounts.eve).is_ok());
+            assert!(governor.delegate(accounts.eve,4).is_ok());
             let vote_result = governor.cast_vote(id, VoteType::Against);
             assert!(vote_result.is_ok());
             let (votes_against, votes_for, votes_abstain) = governor.proposal_votes(id);
@@ -785,7 +801,7 @@ pub mod governor {
             assert_eq!(votes_against,1); 
 
             change_caller(accounts.alice);
-            assert!(governor.delegate(accounts.alice).is_ok());
+            assert!(governor.delegate(accounts.alice,1).is_ok());
             let vote_result = governor.cast_vote(id, VoteType::For);
             assert!(vote_result.is_ok());
             let (votes_against, votes_for, votes_abstain) = governor.proposal_votes(id);
@@ -826,7 +842,7 @@ pub mod governor {
             change_caller(accounts.bob);
 
             let mut governor = Governor::new(Some(String::from("Governor")),0,604800,86400);
-            assert!(governor.delegate(accounts.bob).is_ok());
+            assert!(governor.delegate(accounts.bob,2).is_ok());
             let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
             assert_eq!(emitted_events.len(), 2);    
 
@@ -866,7 +882,7 @@ pub mod governor {
             change_caller(accounts.bob);
 
             let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
-            assert!(governor.delegate(accounts.bob).is_ok());
+            assert!(governor.delegate(accounts.bob,2).is_ok());
             let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
             assert_eq!(emitted_events.len(), 2);    
 
@@ -900,23 +916,23 @@ pub mod governor {
             let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
 
             change_caller(accounts.bob);
-            assert!(governor.delegate(accounts.bob).is_ok());
+            assert!(governor.delegate(accounts.bob,2).is_ok());
             assert_eq!(governor.get_votes(accounts.bob), 1);
             
             advance_block();
-            assert!(governor.delegate(accounts.eve).is_ok());
+            assert!(governor.delegate(accounts.eve,4).is_ok());
             assert_eq!(governor.get_votes(accounts.bob), 0);
             assert_eq!(governor.get_votes(accounts.eve), 1);
 
             advance_block();
             change_caller(accounts.eve);
-            assert!(governor.delegate(accounts.eve).is_ok());
+            assert!(governor.delegate(accounts.eve,4).is_ok());
             assert_eq!(governor.get_votes(accounts.bob), 0);
             assert_eq!(governor.get_votes(accounts.eve), 2);
 
             advance_block();
             change_caller(accounts.alice);
-            assert!(governor.delegate(accounts.eve).is_ok());
+            assert!(governor.delegate(accounts.eve,2).is_ok());
             assert_eq!(governor.get_votes(accounts.bob), 0);
             assert_eq!(governor.get_votes(accounts.eve), 3);
             assert_eq!(governor.get_votes(accounts.alice), 0);
@@ -929,12 +945,12 @@ pub mod governor {
             let mut governor = Governor::new(Some(String::from("Governor")),86400,604800,86400);
 
             change_caller(accounts.bob);
-            assert!(governor.delegate(accounts.bob).is_ok());
+            assert!(governor.delegate(accounts.bob,1).is_ok());
             assert_eq!(governor.get_votes(accounts.bob), 1);
             let block_number_1 = ink_env::block_number::<ink_env::DefaultEnvironment>();
 
             advance_block();
-            assert!(governor.delegate(accounts.eve).is_ok());
+            assert!(governor.delegate(accounts.eve,2).is_ok());
             assert_eq!(governor.get_votes(accounts.bob), 0);
             assert_eq!(governor.get_votes(accounts.eve), 1);
             
@@ -942,7 +958,7 @@ pub mod governor {
 
             advance_block();
             change_caller(accounts.eve);
-            assert!(governor.delegate(accounts.eve).is_ok());
+            assert!(governor.delegate(accounts.eve,2).is_ok());
             assert_eq!(governor.get_votes(accounts.bob), 0);
             assert_eq!(governor.get_votes(accounts.eve), 2);
 
