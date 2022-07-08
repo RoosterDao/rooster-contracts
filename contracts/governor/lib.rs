@@ -162,6 +162,13 @@ pub mod governor {
         votes: u32,
     }
 
+    #[ink(event)]
+    pub struct CollectionCreated {
+        #[ink(topic)]
+        collection_id: CollectionId,
+        symbol: String,        
+    }
+
     #[ink(storage)]
     #[derive(Default,SpreadAllocate,TimelockControllerStorage)]
     pub struct Governor {
@@ -251,18 +258,6 @@ pub mod governor {
             })
         }
 
-        fn _get_delegate(&self, delegator: AccountId) -> AccountId {
-        
-            for block in self.delegation_blocks.iter().rev() {
-                let (cur_delegator, cur_delegate) = self.delegations.get(&block).unwrap();
-                    if cur_delegator == delegator {
-                        return cur_delegate
-                    }
-                }
-            
-            return AccountId::default();
-
-        }
 
         fn _emit_delegate_changed(
             &self,
@@ -294,6 +289,34 @@ pub mod governor {
                 })
 
         }
+
+        fn _emit_collection_created(
+            &self,
+            collection_id: CollectionId,
+            symbol: String,
+        ) {
+            self.env()
+            .emit_event (
+                CollectionCreated {
+                    collection_id,
+                    symbol,
+                })
+        }
+
+
+        fn _get_delegate(&self, delegator: AccountId) -> AccountId {
+        
+            for block in self.delegation_blocks.iter().rev() {
+                let (cur_delegator, cur_delegate) = self.delegations.get(&block).unwrap();
+                    if cur_delegator == delegator {
+                        return cur_delegate
+                    }
+                }
+            
+            return AccountId::default();
+
+        }
+
 
         fn _hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId {
             TimelockController::hash_operation(self, transaction,None, description_hash)
@@ -438,7 +461,7 @@ pub mod governor {
             let result = self.env().extension().create_collection(
                 self.env().account_id(),
                 metadata.into_bytes(),
-                symbol.into_bytes(),
+                symbol.clone().into_bytes(),
             );
 
             if result.is_err() {
@@ -450,6 +473,8 @@ pub mod governor {
                 Some(cid) => self.collection_id = Some(cid),
                 None => return Err(RCError::ErrorCode(RCErrorCode::Failed)),
             }
+
+            self._emit_collection_created(collection_id.unwrap(), symbol);
 
             Ok(())
         }
