@@ -170,14 +170,18 @@ pub mod governor {
         #[TimelockControllerStorageField]
         timelock: TimelockControllerData,
         name: Option<String>,
+        // Governor
         proposals: Mapping<OperationId, ProposalCore>,
         votes: Mapping<OperationId, ProposalVote>,
         voting_delay: Timestamp,
         voting_period: Timestamp,
-        // Temporary implementation 
+        // NFT
+        collection_id: Option<CollectionId>,
+        owners: Mapping<AccountId, NftId>,
+        price: Balance,
+        // Delegations (Temporary implementation)
         delegations: Mapping<BlockNumber, (AccountId, AccountId)>,
         delegation_blocks: Vec<BlockNumber>,
-        collection_id: Option<CollectionId>,
     }
 
 
@@ -187,7 +191,8 @@ pub mod governor {
             name: Option<String>,
             voting_delay: Timestamp,
             voting_period: Timestamp,
-            execution_delay: Timestamp
+            execution_delay: Timestamp,
+            nft_price: Balance,
         ) -> Self {
             ink_lang::utils::initialize_contract(|instance: &mut Self| {
                 instance.name = name;
@@ -197,6 +202,8 @@ pub mod governor {
                 let caller = instance.env().caller();
                 let callee = instance.env().account_id();
                 let calee_vec = vec![callee];
+
+                instance.price = nft_price;
                 
                 // `TimelockController` and `AccessControl` have `_init_with_admin` methods.
                 // You need to call it for each trait separately, to initialize everything for these traits.
@@ -680,11 +687,43 @@ pub mod governor {
            Ok(())
         }
 
-        // #[ink(message,payable)]
-        // pub fn become_member(
-        //     &mut self,
+        #[ink(message,payable)]
+        pub fn become_member(
+            &mut self
+         ) -> Result<(),GovernorError> {
+            let caller = self.env().caller();
+            let contract_address = self.env().account_id();
 
-        // )
+            if self.env().transferred_value() < self.price {
+                return Err(GovernorError::InsufficientAmount)
+            }
+
+            if self.owners.contains(&caller) {
+                return Err(GovernorError::AlreadyOwner)
+            }
+
+            let meta_data = "ipfs://ipfs/QmPMMPdwYtMS4ocQuW7JStGNGxataCv3au9gU6w444HeCj";
+
+
+            let mint_result = self.env().extension()
+            .mint_nft(
+                contract_address,
+                caller,
+                self.collection_id.unwrap(),
+                meta_data.into()
+            );
+
+            let nft_id = match mint_result {
+                Ok(nft_id) => nft_id,
+                _ => return Err(GovernorError::MintFailed)
+            };
+
+            self.owners.insert(&caller, &nft_id.unwrap());
+
+            Ok(())
+         }
+
+         
         
     }
 

@@ -42,6 +42,9 @@ pub enum GovernorError {
     HasAlreadyVoted,
     VoteHasNotSucceeded,
     NotOwner,
+    InsufficientAmount,
+    AlreadyOwner,
+    MintFailed,
 }
 
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq, Eq, Copy, Clone)]
