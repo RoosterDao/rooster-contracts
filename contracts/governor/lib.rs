@@ -1,13 +1,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-use ink_env::{Environment, AccountId};
+
+
+use ink_env::{AccountId, Environment};
 use ink_lang as ink;
 
 #[derive(scale::Encode, scale::Decode, Debug)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum RCErrorCode {
     Failed,
+    CollectionNotCreated,
+    CollectionAlreadyCreated,
 }
 
 #[derive(scale::Encode, scale::Decode, Debug)]
@@ -18,6 +22,7 @@ pub enum RCError {
 
 type CollectionId = u32;
 type NftId = u32;
+type ResourceId = u32;
 #[ink::chain_extension]
 pub trait RmrkExt {
     type ErrorCode = RCErrorCode;
@@ -26,10 +31,35 @@ pub trait RmrkExt {
     fn read_nft(caller_id: AccountId, collection_id: CollectionId, nft_id: NftId) -> bool;
 
     #[ink(extension = 2, returns_result = false)]
-    fn mint_nft(contract_address: AccountId, owner: AccountId, collection_id: CollectionId, metadata: Vec<u8>) -> NftId;
+    fn mint_nft(
+        contract_address: AccountId,
+        owner: AccountId,
+        collection_id: CollectionId,
+        metadata: Vec<u8>,
+    ) -> Option<NftId>;
 
     #[ink(extension = 3, returns_result = false)]
-    fn create_collection(contract_address: AccountId, metadata: Vec<u8>, symbol: Vec<u8>) -> NftId;
+    fn create_collection(
+        contract_address: AccountId,
+        metadata: Vec<u8>,
+        symbol: Vec<u8>,
+    ) -> Option<CollectionId>;
+
+    #[ink(extension = 4, returns_result = false)]
+    fn add_resource(
+        contract_address: AccountId,
+        collection_id: CollectionId,
+        nft_id: NftId,
+        metadata: Vec<u8>,
+    ) -> Option<ResourceId>;
+
+    #[ink(extension = 5, returns_result = false)]
+    fn remove_resource(
+        contract_address: AccountId,
+        collection_id: CollectionId,
+        nft_id: NftId,
+        resource_id: ResourceId,
+    );
 }
 
 impl From<RCErrorCode> for RCError {
@@ -166,6 +196,7 @@ pub mod governor {
                 AccessControlInternal::_init_with_admin(instance, caller);
                 TimelockControllerInternal::_init_with_admin(instance, caller, execution_delay, calee_vec.clone(), calee_vec);
    
+
             })
         }
 
