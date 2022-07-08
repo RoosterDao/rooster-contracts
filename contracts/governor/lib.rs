@@ -153,14 +153,14 @@ pub mod governor {
     pub struct DelegateChanged {
         #[ink(topic)]
         delegator: AccountId,
-        from_delegatee: AccountId,
-        to_delegatee: AccountId,
+        from_delegate: AccountId,
+        to_delegate: AccountId,
     }
 
     #[ink(event)]
     pub struct DelegateVotesChanged {
         #[ink(topic)]
-        delegatee: AccountId,
+        delegate: AccountId,
         votes: u32,
     }
 
@@ -178,6 +178,7 @@ pub mod governor {
         // NFT
         collection_id: Option<CollectionId>,
         owners: Mapping<AccountId, NftId>,
+        owners_lvl: Mapping<AccountId, u8>,
         price: Balance,
         // Delegations (Temporary implementation)
         delegations: Mapping<BlockNumber, (AccountId, AccountId)>,
@@ -252,47 +253,45 @@ pub mod governor {
             })
         }
 
+        fn _get_delegate(&self, delegator: AccountId) -> AccountId {
+        
+            for block in self.delegation_blocks.iter().rev() {
+                let (cur_delegator, cur_delegate) = self.delegations.get(&block).unwrap();
+                    if cur_delegator == delegator {
+                        return cur_delegate
+                    }
+                }
+            
+            return AccountId::default();
+
+        }
 
         fn _emit_delegate_changed(
             &self,
             delegator: AccountId,
-            to_delegatee: AccountId,
-        ) {
-
-            // we need to figure out previous delegatee for delegator
-            let mut seen_first = false;
-            let mut from_delegatee : AccountId = Default::default();
-            for block in self.delegation_blocks.iter().rev() {
-                let (cur_delegator, cur_delegatee) = self.delegations.get(&block).unwrap();
-                if cur_delegator == delegator {
-                    if seen_first {
-                        seen_first = false;
-                    } else {
-                        from_delegatee = cur_delegatee;
-                        break;
-                    }
-                }
-            }
-            
+            to_delegate: AccountId,
+            from_delegate: AccountId,
+        ) {            
             self.env()
             .emit_event (
                 DelegateChanged {
                     delegator,
-                    from_delegatee,
-                    to_delegatee,
+                    from_delegate,
+                    to_delegate,
                 })
         }
 
         fn _emit_delegate_votes_changed(
             &self,
-            delegatee: AccountId
+            delegate: AccountId
         ) {
-            let votes = self._get_votes(delegatee, None);
+
+            let votes = self._get_votes(delegate, None);
 
             self.env()
             .emit_event (
                 DelegateVotesChanged {
-                    delegatee,
+                    delegate,
                     votes
                 })
 
@@ -339,10 +338,10 @@ pub mod governor {
                     continue;
                 }
 
-                let (cur_delegator, cur_delegatee) = self.delegations.get(&block).unwrap();
+                let (cur_delegator, cur_delegate) = self.delegations.get(&block).unwrap();
                 if !already_seen.contains(&cur_delegator) {
                     already_seen.push(cur_delegator);
-                    if cur_delegatee == account {
+                    if cur_delegate == account {
                         result += 1
                     }
                 }
@@ -404,6 +403,8 @@ pub mod governor {
             ink_env::debug_println!("_cast_vote: caller={:?} vote_status={:?}", caller, vote_status);
 
             self._emit_vote_cast(caller,proposal_id,vote);
+
+            self._evolve_owner(caller);
 
             Ok(())
             
@@ -470,6 +471,12 @@ pub mod governor {
               self._create_collection_metadata(metadata.into(), symbol.into())
         }
 
+        pub fn _evolve_owner(&self, account: AccountId) -> Result<(),GovernorError> {
+
+
+
+            Ok(())
+        }
 
         //////////////////////////////
         /// Governor read functions
@@ -619,7 +626,7 @@ pub mod governor {
         ) -> Result<OperationId, GovernorError>  {
 
             let caller = self.env().caller();
-            self._has_voting_power(caller)?;
+            self._has_required_nft(caller)?;
 
 
             ink_env::debug_println!("propose(caller={:?}, Transaction={:?}, description={:?})",caller,transaction,description);
@@ -659,21 +666,24 @@ pub mod governor {
         #[ink(message)]
         pub fn delegate(
             &mut self,
-            delegatee: AccountId,
+            delegate: AccountId,
         ) -> Result<(),GovernorError> {
 
             let caller = self.env().caller();
             self._has_required_nft(caller)?;
 
+            let old_delegate = self._get_delegate(caller);
+
             let current_block = self.env().block_number();
-            self.delegations.insert(&current_block, &(caller,delegatee));
+            self.delegations.insert(&current_block, &(caller,delegate));
 
             if !self.delegation_blocks.contains(&current_block) {
                 self.delegation_blocks.push(current_block);
             }
         
-            self._emit_delegate_changed(caller, delegatee);
-            self._emit_delegate_votes_changed(delegatee);
+            self._emit_delegate_changed(caller, delegate, old_delegate);
+            self._emit_delegate_votes_changed(old_delegate);
+            self._emit_delegate_votes_changed(delegate);
 
            Ok(())
         }
@@ -710,9 +720,12 @@ pub mod governor {
             };
 
             self.owners.insert(&caller, &nft_id.unwrap());
+            self.owners_lvl.insert(&caller,&0);
 
             Ok(())
          }
+
+         
 
          
         
