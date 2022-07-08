@@ -1,8 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-
-
 use ink_env::{AccountId, Environment};
 use ink_lang as ink;
 use ink_prelude::vec::Vec;
@@ -458,14 +456,9 @@ pub mod governor {
 
 
         pub fn _create_collection(&mut self) -> Result<(), RCError> {
-            let metadata = r#"
-            {
-                "description": "Rooster DAO",
-                "attributes": [],
-                "external_url": "project_home_page_url",
-                "image": "ipfs://ipfs/QmQUKBhRG7225uJQ5bmUw1UDVxep8fYp4y94hEqCZA5yFN"
-              }"#;
-            
+              
+              let metadata = "ipfs://ipfs/QmQUKBhRG7225uJQ5bmUw1UDVxep8fYp4y94hEqCZA5yFN";
+
               let symbol = "ROO";
 
               self._create_collection_metadata(metadata.into(), symbol.into())
@@ -703,7 +696,7 @@ pub mod governor {
                 return Err(GovernorError::AlreadyOwner)
             }
 
-            let meta_data = "ipfs://ipfs/QmPMMPdwYtMS4ocQuW7JStGNGxataCv3au9gU6w444HeCj";
+            let metadata = "ipfs://ipfs/QmPMMPdwYtMS4ocQuW7JStGNGxataCv3au9gU6w444HeCj";
 
 
             let mint_result = self.env().extension()
@@ -711,7 +704,7 @@ pub mod governor {
                 contract_address,
                 caller,
                 self.collection_id.unwrap(),
-                meta_data.into()
+                metadata.into()
             );
 
             let nft_id = match mint_result {
@@ -724,10 +717,6 @@ pub mod governor {
 
             Ok(())
          }
-
-         
-
-         
         
     }
 
