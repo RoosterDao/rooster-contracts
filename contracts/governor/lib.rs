@@ -203,7 +203,7 @@ pub mod governor {
                 AccessControlInternal::_init_with_admin(instance, caller);
                 TimelockControllerInternal::_init_with_admin(instance, caller, execution_delay, calee_vec.clone(), calee_vec);
 
-                instance._create_collection();
+                
             })
         }
 
@@ -590,6 +590,14 @@ pub mod governor {
 
         //////////////////////////////
         /// Governor write functions
+        /// 
+        #[ink(message)]
+        pub fn create_collection(&mut self) -> Result<(), RCError> {
+            self._create_collection()
+        }
+
+
+
         #[ink(message)]
         pub fn cast_vote(
             &mut self, 
@@ -671,6 +679,12 @@ pub mod governor {
 
            Ok(())
         }
+
+        // #[ink(message,payable)]
+        // pub fn become_member(
+        //     &mut self,
+
+        // )
         
     }
 
