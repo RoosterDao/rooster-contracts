@@ -316,18 +316,10 @@ pub mod governor {
         ///    `NotOwner` if not 
         fn _has_required_nft(
             &self, 
-            caller: AccountId,
-            nft_id: NftId
+            caller: AccountId
         ) -> Result<(),GovernorError> {
             
-            let owner = self.env()
-            .extension()
-            .read_nft(caller, self.collection_id.unwrap(), nft_id)
-            .map_err(|_| false)
-            .unwrap();
-            
-
-            if !owner {
+            if !self.owners.contains(&caller) {
                return Err(GovernorError::NotOwner)    
             }
 
@@ -668,11 +660,10 @@ pub mod governor {
         pub fn delegate(
             &mut self,
             delegatee: AccountId,
-            nft_id: NftId,
         ) -> Result<(),GovernorError> {
 
             let caller = self.env().caller();
-            self._has_required_nft(caller, nft_id)?;
+            self._has_required_nft(caller)?;
 
             let current_block = self.env().block_number();
             self.delegations.insert(&current_block, &(caller,delegatee));
