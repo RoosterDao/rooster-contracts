@@ -483,7 +483,7 @@ pub mod governor {
 
         pub fn _create_collection(&mut self) -> Result<(), RCError> {
               
-              let metadata = "ipfs://ipfs/QmQUKBhRG7225uJQ5bmUw1UDVxep8fYp4y94hEqCZA5yFN";
+              let metadata = "ipfs://ipfs/QmTG9ekqrdMh3dsehLYjC19fUSmPR31Ds2h6Jd7LnMZ9c7";
 
               let symbol = "ROO";
 
@@ -716,6 +716,10 @@ pub mod governor {
 
            Ok(())
         }
+
+        //////////////////////////////
+        /// Governor payable functions
+        /// 
 
         #[ink(message,payable)]
         pub fn become_member(
