@@ -433,7 +433,7 @@ pub mod governor {
 
             self._emit_vote_cast(caller,proposal_id,vote);
 
-            self._evolve_owner(caller);
+            self._evolve_from_delegate(caller);
 
             Ok(())
             
