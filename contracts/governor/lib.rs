@@ -615,6 +615,11 @@ pub mod governor {
         }
 
         #[ink(message)]
+        pub fn get_nft_price(&self) -> Balance {
+            self.price
+        }
+
+        #[ink(message)]
         pub fn list_owners(&self) -> Vec<(AccountId,NftId,u32)> {
             let mut result : Vec<(AccountId,NftId,u32)> = Vec::new();
 
