@@ -503,8 +503,7 @@ pub mod governor {
 
 
             //TODO: add different metadata for every level!
-            let next_lvl_metadata : ink_prelude::string::String 
-            = "ipfs://ipfs/QmQUKBhRG7225uJQ5bmUw1UDVxep8fYp4y94hEqCZA5yFN".into();
+            let next_lvl_metadata = "ipfs://ipfs/QmeeCx81m6RVjmzbHjdeHABa7ksVPymwvXRWSuXSnvpoYG";
 
             if cur_lvl > 0 {
                 let _result = self.env().extension().remove_resource(
@@ -519,7 +518,7 @@ pub mod governor {
                 self.env().account_id(),
                 self.collection_id.unwrap(),
                 nft_id,
-                next_lvl_metadata.into_bytes(),
+                next_lvl_metadata.into(),
             );
 
             self.owners_lvl.insert(&account, &(cur_lvl + 1));
@@ -804,7 +803,7 @@ pub mod governor {
                 return Err(GovernorError::AlreadyOwner)
             }
 
-            let metadata = "ipfs://ipfs/QmPMMPdwYtMS4ocQuW7JStGNGxataCv3au9gU6w444HeCj";
+            let metadata = "ipfs://ipfs/QmeeCx81m6RVjmzbHjdeHABa7ksVPymwvXRWSuXSnvpoYG";
 
 
             let mint_result = self.env().extension()
@@ -822,7 +821,7 @@ pub mod governor {
 
             self.owners.push(caller);
             self.owners_nft.insert(&caller, &nft_id.unwrap());
-            self.owners_lvl.insert(&caller,&0);
+            self.owners_lvl.insert(&caller,&1);
 
             Ok(())
          }
