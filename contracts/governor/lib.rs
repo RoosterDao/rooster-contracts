@@ -507,7 +507,7 @@ pub mod governor {
             = "ipfs://ipfs/QmQUKBhRG7225uJQ5bmUw1UDVxep8fYp4y94hEqCZA5yFN".into();
 
             if cur_lvl > 0 {
-                let result = self.env().extension().remove_resource(
+                let _result = self.env().extension().remove_resource(
                     self.env().account_id(),
                     self.collection_id.unwrap(),
                     nft_id,
@@ -515,7 +515,7 @@ pub mod governor {
                 );
             }
 
-            let result = self.env().extension().add_resource(
+            let _result = self.env().extension().add_resource(
                 self.env().account_id(),
                 self.collection_id.unwrap(),
                 nft_id,
@@ -663,6 +663,16 @@ pub mod governor {
         #[ink(message)]
         pub fn get_nft_price(&self) -> Balance {
             self.price
+        }
+
+        #[ink(message)]
+        pub fn get_nft(&self, account: AccountId) -> Result<(CollectionId, NftId), GovernorError>  {
+            if !self.owners_nft.contains(&account) {
+                return Err(GovernorError::NotOwner)    
+             }
+
+             let nft_id = self.owners_nft.get(&account).unwrap();
+             Ok((self.collection_id.unwrap(),nft_id))
         }
 
         #[ink(message)]
