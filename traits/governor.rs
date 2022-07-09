@@ -19,6 +19,25 @@ use openbrush::{
     },
 };
 
+#[derive(scale::Encode, scale::Decode, Debug)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum RCErrorCode {
+    Failed,
+    CollectionNotCreated,
+    CollectionAlreadyCreated,
+}
+
+#[derive(scale::Encode, scale::Decode, Debug)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum RCError {
+    ErrorCode(RCErrorCode),
+}
+
+
+pub type NftId = u32;
+pub type CollectionId = u32;
+pub type ResourceId = u32;
+
 #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum ProposalState {
@@ -84,9 +103,6 @@ pub struct ProposalCore {
 pub trait Governor {
     //read functions
     #[ink(message)]
-    fn get_votes(&self, account: AccountId, blocknumber_o: Option<BlockNumber>) -> u32;
-
-    #[ink(message)]
     fn has_voted(&self, proposal_id: OperationId, account: AccountId) -> bool;
 
     #[ink(message)]
@@ -113,8 +129,20 @@ pub trait Governor {
     #[ink(message)]
     fn hash_proposal(&self, transaction: Transaction, description_hash: [u8; 32]) -> OperationId;
 
+    #[ink(message)] 
+    fn get_past_votes(&self, account: AccountId, block: BlockNumber) -> u32;
+
+    #[ink(message)]
+    fn get_votes(&self, account: AccountId, blocknumber_o: Option<BlockNumber>) -> u32;
+
+    #[ink(message)]
+    fn list_owners(&self) -> Vec<(AccountId,NftId,u32)>;
+
 
     //write functions
+    #[ink(message)]
+    fn create_collection(&mut self) -> Result<(), RCError>;
+
     #[ink(message)]
     fn cast_vote(&mut self, proposal_id: OperationId, vote: VoteType, ) -> Result<(),GovernorError>;
 
@@ -123,4 +151,11 @@ pub trait Governor {
 
     #[ink(message)]
     fn propose(&mut self, transaction: Transaction, description: String) -> Result<OperationId, GovernorError>;
+
+    #[ink(message)]
+    fn delegate(&mut self,delegate: AccountId,) -> Result<(),GovernorError>;
+
+    //payable functions
+    #[ink(message,payable)]
+    fn become_member(&mut self) -> Result<(),GovernorError>;
 }

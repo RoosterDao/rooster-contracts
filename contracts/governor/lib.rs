@@ -5,6 +5,15 @@ use ink_env::{AccountId, Environment};
 use ink_lang as ink;
 use ink_prelude::vec::Vec;
 
+
+use roosterdao::traits::governor::{
+    NftId,
+    CollectionId,
+    ResourceId,
+    //RCErrorCode,
+    //RCError,
+};
+
 #[derive(scale::Encode, scale::Decode, Debug)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum RCErrorCode {
@@ -19,9 +28,7 @@ pub enum RCError {
     ErrorCode(RCErrorCode),
 }
 
-type CollectionId = u32;
-type NftId = u32;
-type ResourceId = u32;
+
 #[ink::chain_extension]
 pub trait RmrkExt {
     type ErrorCode = RCErrorCode;
