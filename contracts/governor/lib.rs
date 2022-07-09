@@ -191,7 +191,7 @@ pub mod governor {
         collection_id: Option<CollectionId>,
         owners: Vec<AccountId>,
         owners_nft: Mapping<AccountId, NftId>,
-        owners_lvl: Mapping<AccountId, u8>,
+        owners_lvl: Mapping<AccountId, u32>,
         price: Balance,
         // Delegations (Temporary implementation)
         delegations: Mapping<BlockNumber, (AccountId, AccountId)>,
@@ -361,7 +361,7 @@ pub mod governor {
             };
 
             let mut result : u32 = 0;
-            let mut already_seen : Vec<AccountId> = Default::default();
+            let mut already_seen : Vec<AccountId> = Vec::new(); 
             for block in self.delegation_blocks.iter().rev() {
                 if block > &block_limit {
                     continue;
@@ -457,7 +457,7 @@ pub mod governor {
         }
 
         
-        pub fn _create_collection_metadata(
+        fn _create_collection_metadata(
             &mut self,
             metadata: String,
             symbol: String,
@@ -488,7 +488,7 @@ pub mod governor {
         }
 
 
-        pub fn _create_collection(&mut self) -> Result<(), RCError> {
+        fn _create_collection(&mut self) -> Result<(), RCError> {
               
               let metadata = "ipfs://ipfs/QmTG9ekqrdMh3dsehLYjC19fUSmPR31Ds2h6Jd7LnMZ9c7";
 
@@ -497,12 +497,58 @@ pub mod governor {
               self._create_collection_metadata(metadata.into(), symbol.into())
         }
 
-        pub fn _evolve_owner(&self, account: AccountId) -> Result<(),GovernorError> {
+        fn _evolve_owner(&mut self, account: AccountId) -> Result<(),GovernorError> {
+            let cur_lvl = self.owners_lvl.get(&account).unwrap();
+            let nft_id = self.owners_nft.get(&account).unwrap();
 
 
+            //TODO: add different metadata for every level!
+            let next_lvl_metadata : ink_prelude::string::String 
+            = "ipfs://ipfs/QmQUKBhRG7225uJQ5bmUw1UDVxep8fYp4y94hEqCZA5yFN".into();
+
+            if cur_lvl > 0 {
+                let result = self.env().extension().remove_resource(
+                    self.env().account_id(),
+                    self.collection_id.unwrap(),
+                    nft_id,
+                    cur_lvl
+                );
+            }
+
+            let result = self.env().extension().add_resource(
+                self.env().account_id(),
+                self.collection_id.unwrap(),
+                nft_id,
+                next_lvl_metadata.into_bytes(),
+            );
+
+            self.owners_lvl.insert(&account, &(cur_lvl + 1));
 
             Ok(())
         }
+
+
+        fn _evolve_from_delegate(&mut self, delegate: AccountId) -> Result<(),GovernorError> {
+            // evolve every owner that delegated to delegate
+            let mut already_seen : Vec<AccountId> = Vec::new(); 
+            let mut to_evolve: Vec<AccountId> = Vec::new(); 
+            for block in self.delegation_blocks.iter().rev() {
+                let (cur_delegator, cur_delegate) = self.delegations.get(&block).unwrap();
+                if !already_seen.contains(&cur_delegator) {
+                    already_seen.push(cur_delegator);
+                    if cur_delegate == delegate {
+                        to_evolve.push(cur_delegator);
+                    }
+                }
+            }
+
+            for account in to_evolve.iter() {
+                self._evolve_owner(*account);
+            }
+
+            Ok(())
+        }
+       
 
         //////////////////////////////
         /// Governor read functions
