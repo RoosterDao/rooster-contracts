@@ -433,7 +433,7 @@ pub mod governor {
 
             self._emit_vote_cast(caller,proposal_id,vote);
 
-            self._evolve_from_delegate(caller);
+            self._evolve_from_delegate(caller)?;
 
             Ok(())
             
@@ -542,7 +542,7 @@ pub mod governor {
             }
 
             for account in to_evolve.iter() {
-                self._evolve_owner(*account);
+                self._evolve_owner(*account)?;
             }
 
             Ok(())
