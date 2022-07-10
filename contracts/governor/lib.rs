@@ -184,6 +184,7 @@ pub mod governor {
         name: Option<String>,
         // Governor
         proposals: Mapping<OperationId, ProposalCore>,
+        proposal_ids: Vec<OperationId>,
         votes: Mapping<OperationId, ProposalVote>,
         voting_delay: Timestamp,
         voting_period: Timestamp,
@@ -691,7 +692,17 @@ pub mod governor {
             result
         }
 
+        #[ink(message)]
+        pub fn list_proposals(&self) -> Vec<(OperationId,ProposalVote)> {
+            let mut result: Vec<(OperationId,ProposalVote)> = Vec::new();
 
+            for proposal in self.proposal_ids.iter() {
+                let proposal_vote = self.votes.get(proposal).unwrap();
+                result.push((*proposal, proposal_vote));
+            }
+
+            result
+        }
 
         //////////////////////////////
         /// Governor write functions
@@ -748,6 +759,8 @@ pub mod governor {
 
             self.proposals.insert(&proposal_id, &proposal);
             self.votes.insert(&proposal_id, &ProposalVote::default());
+
+            self.proposal_ids.push(proposal_id);
 
             self
             ._emit_proposal_created(

@@ -83,7 +83,7 @@ pub struct ProposalVote {
     pub votes_against: u32,
     pub votes_for:     u32,
     pub votes_abstain: u32,
-    // This is kinda ugly, I know... Would rather use a Mapping here, but I have to figure out how...
+    // Todo: nest mapping 
     pub has_voted: Vec<AccountId>,
 }
 
