@@ -501,11 +501,14 @@ pub mod governor {
             let cur_lvl = self.owners_lvl.get(&account).unwrap();
             let nft_id = self.owners_nft.get(&account).unwrap();
 
+            let next_lvl_metadata = match cur_lvl {
+                1 => "ipfs://ipfs/QmeeCx81m6RVjmzbHjdeHABa7ksVPymwvXRWSuXSnvpoYG",
+                2 => "ipfs://ipfs/QmSvdCbp8VCPcptoQfZUZ725fd3gyuc8bao1qpykba9zEm",
+                3 => "ipfs://ipfs/QmXCHpDw6cPGUzksURJ4rXQsxoDKTYvjYKUzcffWmQyhBh",
+                _ => "ipfs://ipfs/QmddZKVwg2jg1aqmFnqLAmpUAr8zM8asy8x6tSLuLdY1Sd",
+            };
 
-            //TODO: add different metadata for every level!
-            let next_lvl_metadata = "ipfs://ipfs/QmeeCx81m6RVjmzbHjdeHABa7ksVPymwvXRWSuXSnvpoYG";
-
-            if cur_lvl > 0 {
+            if cur_lvl > 1 {
                 let _result = self.env().extension().remove_resource(
                     self.env().account_id(),
                     self.collection_id.unwrap(),
