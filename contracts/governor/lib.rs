@@ -839,6 +839,8 @@ pub mod governor {
             self.owners_nft.insert(&caller, &nft_id.unwrap());
             self.owners_lvl.insert(&caller,&1);
 
+            self._evolve_owner(caller)?;
+
             Ok(())
          }
         
