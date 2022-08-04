@@ -4,52 +4,63 @@
 use ink_env::{AccountId, Environment};
 use ink_lang as ink;
 use ink_prelude::vec::Vec;
+use scale::{Decode, Encode};
 
+mod types;
+
+use types::*;
 
 use roosterdao::traits::governor::{
     NftId,
     CollectionId,
     ResourceId,
-    //RCErrorCode,
-    //RCError,
 };
 
-#[derive(scale::Encode, scale::Decode, Debug)]
+#[derive(Encode, Decode, Debug)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-pub enum RCErrorCode {
+pub enum RmrkErrorCode {
     Failed,
-    CollectionNotCreated,
-    CollectionAlreadyCreated,
 }
 
-#[derive(scale::Encode, scale::Decode, Debug)]
+#[derive(Encode, Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-pub enum RCError {
-    ErrorCode(RCErrorCode),
+pub enum RmrkError {
+    ErrorCode(RmrkErrorCode),
 }
-
 
 #[ink::chain_extension]
 pub trait RmrkExt {
-    type ErrorCode = RCErrorCode;
+    type ErrorCode = RmrkErrorCode;
 
-    #[ink(extension = 1, returns_result = false)]
-    fn read_nft(caller_id: AccountId, collection_id: CollectionId, nft_id: NftId) -> bool;
 
-    #[ink(extension = 2, returns_result = false)]
+    #[ink(extension = 3501, returns_result = false, handle_status = false)]
+    fn next_nft_id(collection_id: CollectionId) -> NftId;
+
+    #[ink(extension = 3502, returns_result = false, handle_status = false)]
+    fn collection_index() -> CollectionId;
+
+
+    #[ink(extension = 3505, returns_result = false, handle_status = false)]
+    fn nfts(collection_id: CollectionId, nft_id: NftId) -> Option<NftInfo>;
+
+    #[ink(extension = 3513)]
     fn mint_nft(
-        contract_address: AccountId,
         owner: AccountId,
-        collection_id: CollectionId,
+        collection_id: u32,
+        royalty_recipient: Option<AccountId>,
+        royalty: Option<u32>,
         metadata: Vec<u8>,
-    ) -> Option<NftId>;
+        transferable: bool,
+        resources: Option<Vec<ResourceTypes>>,
+    ) -> Result<(), RmrkError>;
 
-    #[ink(extension = 3, returns_result = false)]
+
+    #[ink(extension = 3515)]
     fn create_collection(
-        contract_address: AccountId,
         metadata: Vec<u8>,
+        max: Option<u32>,
         symbol: Vec<u8>,
-    ) -> Option<CollectionId>;
+    ) -> Result<(), RmrkError>;
 
     #[ink(extension = 4, returns_result = false)]
     fn add_resource(
@@ -68,19 +79,19 @@ pub trait RmrkExt {
     );
 }
 
-impl From<RCErrorCode> for RCError {
-    fn from(error_code: RCErrorCode) -> Self {
+impl From<RmrkErrorCode> for RmrkError {
+    fn from(error_code: RmrkErrorCode) -> Self {
         Self::ErrorCode(error_code)
     }
 }
 
-impl From<scale::Error> for RCError {
+impl From<scale::Error> for RmrkError {
     fn from(_: scale::Error) -> Self {
         panic!("encountered unexpected invalid SCALE encoding")
     }
 }
 
-impl ink_env::chain_extension::FromStatusCode for RCErrorCode {
+impl ink_env::chain_extension::FromStatusCode for RmrkErrorCode {
     fn from_status_code(status_code: u32) -> Result<(), Self> {
         match status_code {
             0 => Ok(()),
@@ -89,6 +100,7 @@ impl ink_env::chain_extension::FromStatusCode for RCErrorCode {
         }
     }
 }
+
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -113,8 +125,8 @@ pub mod governor {
     use ink_prelude::vec::Vec;
 
     use super::{
-        RCError, 
-        RCErrorCode,
+        RmrkError, 
+        RmrkErrorCode,
         CollectionId,
         NftId,
     };
@@ -462,34 +474,27 @@ pub mod governor {
             &mut self,
             metadata: String,
             symbol: String,
-        ) -> Result<(), RCError> {
+        ) -> Result<(), RmrkError> {
             if self.collection_id != None {
-                return Err(RCError::ErrorCode(RCErrorCode::CollectionAlreadyCreated));
+                return Err(RmrkError::ErrorCode(RmrkErrorCode::Failed));
             }
 
-            let result = self.env().extension().create_collection(
-                self.env().account_id(),
+            self.collection_id = Some(self.env().extension().collection_index());
+
+            self.env().extension().create_collection(
                 metadata.into_bytes(),
+                None,
                 symbol.clone().into_bytes(),
-            );
+            )?;
 
-            if result.is_err() {
-                return Err(RCError::ErrorCode(RCErrorCode::Failed));
-            }
-            let collection_id = result.unwrap();
 
-            match collection_id {
-                Some(cid) => self.collection_id = Some(cid),
-                None => return Err(RCError::ErrorCode(RCErrorCode::Failed)),
-            }
-
-            self._emit_collection_created(collection_id.unwrap(), symbol);
+            self._emit_collection_created(self.collection_id.unwrap(), symbol);
 
             Ok(())
         }
 
 
-        fn _create_collection(&mut self) -> Result<(), RCError> {
+        fn _create_collection(&mut self) -> Result<(), RmrkError> {
               
               let metadata = "ipfs://ipfs/QmTG9ekqrdMh3dsehLYjC19fUSmPR31Ds2h6Jd7LnMZ9c7";
 
@@ -708,7 +713,7 @@ pub mod governor {
         /// Governor write functions
         /// 
         #[ink(message)]
-        pub fn create_collection(&mut self) -> Result<(), RCError> {
+        pub fn create_collection(&mut self) -> Result<(), RmrkError> {
             self._create_collection()
         }
 
@@ -809,8 +814,7 @@ pub mod governor {
             &mut self
          ) -> Result<(),GovernorError> {
             let caller = self.env().caller();
-            let contract_address = self.env().account_id();
-
+            
             if self.env().transferred_value() < self.price {
                 return Err(GovernorError::InsufficientAmount)
             }
@@ -821,22 +825,25 @@ pub mod governor {
 
             let metadata = "ipfs://ipfs/QmeeCx81m6RVjmzbHjdeHABa7ksVPymwvXRWSuXSnvpoYG";
 
+            let nft_id = self.env().extension()
+            .next_nft_id(self.collection_id.unwrap());
 
-            let mint_result = self.env().extension()
+            // ... the danger zone ...
+
+            self.env().extension()
             .mint_nft(
-                contract_address,
                 caller,
                 self.collection_id.unwrap(),
-                metadata.into()
-            );
+                None,
+                None,
+                metadata.into(),
+                false,
+                None
+            ).map_err(|_| GovernorError::MintFailed)?;
 
-            let nft_id = match mint_result {
-                Ok(nft_id) => nft_id,
-                _ => return Err(GovernorError::MintFailed)
-            };
 
             self.owners.push(caller);
-            self.owners_nft.insert(&caller, &nft_id.unwrap());
+            self.owners_nft.insert(&caller, &nft_id);
             self.owners_lvl.insert(&caller,&1);
 
             self._evolve_owner(caller)?;
