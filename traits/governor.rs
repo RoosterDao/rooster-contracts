@@ -64,6 +64,7 @@ pub enum GovernorError {
     InsufficientAmount,
     AlreadyOwner,
     MintFailed,
+    AddResourceFailed,
 }
 
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq, Eq, Copy, Clone)]

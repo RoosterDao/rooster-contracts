@@ -62,21 +62,21 @@ pub trait RmrkExt {
         symbol: Vec<u8>,
     ) -> Result<(), RmrkError>;
 
-    #[ink(extension = 4, returns_result = false)]
-    fn add_resource(
-        contract_address: AccountId,
+
+    #[ink(extension = 3524)]
+    fn add_basic_resource(
         collection_id: CollectionId,
         nft_id: NftId,
-        metadata: Vec<u8>,
-    ) -> Option<ResourceId>;
+        resource: BasicResource,
+    ) -> Result<(), RmrkError>;
 
-    #[ink(extension = 5, returns_result = false)]
+    #[ink(extension = 3528)]
     fn remove_resource(
-        contract_address: AccountId,
         collection_id: CollectionId,
         nft_id: NftId,
         resource_id: ResourceId,
-    );
+    ) -> Result<(), RmrkError>;
+
 }
 
 impl From<RmrkErrorCode> for RmrkError {
@@ -129,6 +129,7 @@ pub mod governor {
         RmrkErrorCode,
         CollectionId,
         NftId,
+        BasicResource,
     };
     
     use ink_prelude::string::{
@@ -516,19 +517,24 @@ pub mod governor {
 
             if cur_lvl > 1 {
                 let _result = self.env().extension().remove_resource(
-                    self.env().account_id(),
                     self.collection_id.unwrap(),
                     nft_id,
                     cur_lvl
                 );
             }
 
-            let _result = self.env().extension().add_resource(
-                self.env().account_id(),
+            let resource = BasicResource {
+                src: None,
+                metadata: Some(next_lvl_metadata.as_bytes().to_vec()),
+                license: None,
+                thumb: None,
+            };
+
+            self.env().extension().add_basic_resource(
                 self.collection_id.unwrap(),
                 nft_id,
-                next_lvl_metadata.into(),
-            );
+                resource,
+            ).map_err(|_| GovernorError::AddResourceFailed)?;
 
             self.owners_lvl.insert(&account, &(cur_lvl + 1));
 
