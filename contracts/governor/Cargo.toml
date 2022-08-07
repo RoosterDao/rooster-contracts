@@ -1,5 +1,5 @@
 [package]
-name = "governer_contract"
+name = "governor"
 version = "0.0.1"
 authors = ["RoosterDao"]
 edition = "2021"
@@ -24,7 +24,7 @@ openbrush = { version="~2.1.0", default-features = false } #, features = ["pausa
 #openbrush_lang = { version = "~2.1.0", default-features = false }
 
 [lib]
-name = "governor_contract"
+name = "governor"
 path = "lib.rs"
 crate-type = [
     "cdylib",

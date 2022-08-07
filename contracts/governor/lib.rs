@@ -45,6 +45,7 @@ pub trait RmrkExt {
 
     #[ink(extension = 3513)]
     fn mint_nft(
+        issuer: AccountId,
         owner: AccountId,
         collection_id: u32,
         royalty_recipient: Option<AccountId>,
@@ -57,6 +58,7 @@ pub trait RmrkExt {
 
     #[ink(extension = 3515)]
     fn create_collection(
+        issuer: AccountId,
         metadata: Vec<u8>,
         max: Option<u32>,
         symbol: Vec<u8>,
@@ -483,10 +485,13 @@ pub mod governor {
             self.collection_id = Some(self.env().extension().collection_index());
 
             self.env().extension().create_collection(
+                self.env().account_id(),
                 metadata.into_bytes(),
                 None,
                 symbol.clone().into_bytes(),
             )?;
+
+           
 
 
             self._emit_collection_created(self.collection_id.unwrap(), symbol);
@@ -838,6 +843,7 @@ pub mod governor {
 
             self.env().extension()
             .mint_nft(
+                self.env().account_id(),
                 caller,
                 self.collection_id.unwrap(),
                 None,
