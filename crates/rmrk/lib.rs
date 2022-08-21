@@ -6,7 +6,41 @@ use scale::{Decode, Encode};
 
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
-pub enum RmrkError {}
+pub enum RmrkError {
+    /// Error names should be descriptive.
+    NoneValue,
+    /// Errors should have helpful documentation associated with them.
+    StorageOverflow,
+    TooLong,
+    NoAvailableCollectionId,
+    NoAvailableResourceId,
+    MetadataNotSet,
+    RecipientNotSet,
+    NoAvailableNftId,
+    NotInRange,
+    RoyaltyNotSet,
+    CollectionUnknown,
+    NoPermission,
+    NoWitness,
+    CollectionNotEmpty,
+    CollectionFullOrLocked,
+    CannotSendToDescendentOrSelf,
+    ResourceAlreadyExists,
+    EmptyResource,
+    TooManyRecursions,
+    NftIsLocked,
+    CannotAcceptNonOwnedNft,
+    CannotRejectNonOwnedNft,
+    CannotRejectNonPendingNft,
+    ResourceDoesntExist,
+    /// Accepting a resource that is not pending should fail
+    ResourceNotPending,
+    NonTransferable,
+    // Must unequip an item before sending (this only applies to the
+    // rmrk-equip pallet but the send operation lives in rmrk-core)
+    CannotSendEquippedItem,
+}
+
 
 impl From<scale::Error> for RmrkError {
 	fn from(_: scale::Error) -> Self {
