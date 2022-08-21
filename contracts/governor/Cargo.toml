@@ -23,6 +23,9 @@ roosterdao = { path = "../..", default-features = false }
 openbrush = { version="~2.1.0", default-features = false } #, features = ["pausable", "access_control", "timelock_controller", "test_utils"] }
 #openbrush_lang = { version = "~2.1.0", default-features = false }
 
+rmrk_extension = { path = "../../crates/rmrk", default-features = false }
+
+
 [lib]
 name = "governor"
 path = "lib.rs"

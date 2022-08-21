@@ -5,6 +5,8 @@ use ink_storage::traits::{
 use ink_prelude::string::String;
 use ink_prelude::vec::Vec;
 
+use rmrk_extension::*;
+
 use openbrush::{
     contracts::timelock_controller::*,
     traits::Timestamp,
@@ -34,10 +36,6 @@ pub enum RCError {
 }
 
 
-pub type NftId = u32;
-pub type CollectionId = u32;
-pub type ResourceId = u32;
-
 #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum ProposalState {
@@ -65,6 +63,8 @@ pub enum GovernorError {
     AlreadyOwner,
     MintFailed,
     AddResourceFailed,
+    InternalError,
+    CreateCollectionFailed,
 }
 
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq, Eq, Copy, Clone)]
@@ -138,7 +138,6 @@ pub trait Governor {
 
     #[ink(message)]
     fn list_owners(&self) -> Vec<(AccountId,NftId,u32)>;
-
 
     //write functions
     #[ink(message)]

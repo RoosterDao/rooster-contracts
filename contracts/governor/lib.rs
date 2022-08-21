@@ -1,137 +1,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-use ink_env::{AccountId, Environment};
 use ink_lang as ink;
-use ink_prelude::vec::Vec;
-use scale::{Decode, Encode};
 
-mod types;
-
-use types::*;
-
-use roosterdao::traits::governor::{
-    NftId,
-    CollectionId,
-    ResourceId,
-};
-
-#[derive(Encode, Decode, Debug)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-pub enum RmrkErrorCode {
-    Failed,
-}
-
-#[derive(Encode, Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-pub enum RmrkError {
-    ErrorCode(RmrkErrorCode),
-}
-
-#[ink::chain_extension]
-pub trait RmrkExt {
-    type ErrorCode = RmrkErrorCode;
-
-
-    #[ink(extension = 3501, returns_result = false, handle_status = false)]
-    fn next_nft_id(collection_id: CollectionId) -> NftId;
-
-    #[ink(extension = 3502, returns_result = false, handle_status = false)]
-    fn collection_index() -> CollectionId;
-
-
-    #[ink(extension = 3505, returns_result = false, handle_status = false)]
-    fn nfts(collection_id: CollectionId, nft_id: NftId) -> Option<NftInfo>;
-
-    #[ink(extension = 3513)]
-    fn mint_nft(
-        owner: AccountId,
-        collection_id: u32,
-        royalty_recipient: Option<AccountId>,
-        royalty: Option<u32>,
-        metadata: Vec<u8>,
-        transferable: bool,
-        resources: Option<Vec<ResourceTypes>>,
-    ) -> Result<(), RmrkError>;
-
-
-    #[ink(extension = 3515)]
-    fn create_collection(
-        metadata: Vec<u8>,
-        max: Option<u32>,
-        symbol: Vec<u8>,
-    ) -> Result<(), RmrkError>;
-
-
-    #[ink(extension = 3524)]
-    fn add_basic_resource(
-        collection_id: CollectionId,
-        nft_id: NftId,
-        resource: BasicResource,
-    ) -> Result<(), RmrkError>;
-
-    #[ink(extension = 3528)]
-    fn remove_resource(
-        collection_id: CollectionId,
-        nft_id: NftId,
-        resource_id: ResourceId,
-    ) -> Result<(), RmrkError>;
-
-}
-
-impl From<RmrkErrorCode> for RmrkError {
-    fn from(error_code: RmrkErrorCode) -> Self {
-        Self::ErrorCode(error_code)
-    }
-}
-
-impl From<scale::Error> for RmrkError {
-    fn from(_: scale::Error) -> Self {
-        panic!("encountered unexpected invalid SCALE encoding")
-    }
-}
-
-impl ink_env::chain_extension::FromStatusCode for RmrkErrorCode {
-    fn from_status_code(status_code: u32) -> Result<(), Self> {
-        match status_code {
-            0 => Ok(()),
-            1 => Err(Self::Failed),
-            _ => panic!("encountered unknown status code"),
-        }
-    }
-}
-
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-pub enum CustomEnvironment {}
-
-impl Environment for CustomEnvironment {
-    const MAX_EVENT_TOPICS: usize = <ink_env::DefaultEnvironment as Environment>::MAX_EVENT_TOPICS;
-
-    type AccountId = <ink_env::DefaultEnvironment as Environment>::AccountId;
-    type Balance = <ink_env::DefaultEnvironment as Environment>::Balance;
-    type Hash = <ink_env::DefaultEnvironment as Environment>::Hash;
-    type BlockNumber = <ink_env::DefaultEnvironment as Environment>::BlockNumber;
-    type Timestamp = <ink_env::DefaultEnvironment as Environment>::Timestamp;
-
-    type ChainExtension = RmrkExt;
-}
-
-#[openbrush::contract(env = crate::CustomEnvironment)]
+//#[openbrush::contract(env = crate::CustomEnvironment)]
+#[ink::contract]
 pub mod governor {
     use ink_storage::traits::SpreadAllocate;
     use ink_prelude::vec;
     use ink_prelude::vec::Vec;
 
-    use super::{
-        RmrkError, 
-        RmrkErrorCode,
-        CollectionId,
-        NftId,
-        BasicResource,
-    };
-    
+    use rmrk_extension::*;
+
     use ink_prelude::string::{
         String,
     };
@@ -475,26 +355,26 @@ pub mod governor {
             &mut self,
             metadata: String,
             symbol: String,
-        ) -> Result<(), RmrkError> {
+        ) -> Result<(), GovernorError> {
             if self.collection_id != None {
-                return Err(RmrkError::ErrorCode(RmrkErrorCode::Failed));
+                return Err(GovernorError::InternalError);
             }
 
-            self.collection_id = Some(self.env().extension().collection_index());
+            self.collection_id = Some(Rmrk::collection_index());
 
-            self.env().extension().create_collection(
+            Rmrk::create_collection(
                 metadata.into_bytes(),
                 None,
                 symbol.clone().into_bytes(),
-            )?;
+            ).map_err(|_| GovernorError::CreateCollectionFailed)?;
 
             self._emit_collection_created(self.collection_id.unwrap(), symbol);
-
             Ok(())
+            
         }
 
 
-        fn _create_collection(&mut self) -> Result<(), RmrkError> {
+        fn _create_collection(&mut self) -> Result<(), GovernorError> {
               
               let metadata = "ipfs://ipfs/QmTG9ekqrdMh3dsehLYjC19fUSmPR31Ds2h6Jd7LnMZ9c7";
 
@@ -515,7 +395,7 @@ pub mod governor {
             };
 
             if cur_lvl > 1 {
-                let _result = self.env().extension().remove_resource(
+                let _result = Rmrk::remove_resource(
                     self.collection_id.unwrap(),
                     nft_id,
                     cur_lvl
@@ -529,7 +409,7 @@ pub mod governor {
                 thumb: None,
             };
 
-            self.env().extension().add_basic_resource(
+            Rmrk::add_basic_resource(
                 self.collection_id.unwrap(),
                 nft_id,
                 resource,
@@ -718,7 +598,7 @@ pub mod governor {
         /// Governor write functions
         /// 
         #[ink(message)]
-        pub fn create_collection(&mut self) -> Result<(), RmrkError> {
+        pub fn create_collection(&mut self) -> Result<(), GovernorError> {
             self._create_collection()
         }
 
@@ -818,6 +698,12 @@ pub mod governor {
         pub fn become_member(
             &mut self
          ) -> Result<(),GovernorError> {
+            //ink_env::debug_println!("propose(caller={:?}, Transaction={:?}, description={:?})",caller,transaction,description);
+            ink_env::debug_println!("become member()");
+            
+            
+
+
             let caller = self.env().caller();
             
             if self.env().transferred_value() < self.price {
@@ -830,13 +716,11 @@ pub mod governor {
 
             let metadata = "ipfs://ipfs/QmeeCx81m6RVjmzbHjdeHABa7ksVPymwvXRWSuXSnvpoYG";
 
-            let nft_id = self.env().extension()
-            .next_nft_id(self.collection_id.unwrap());
+            let nft_id = Rmrk::next_nft_id(self.collection_id.unwrap());
 
             // ... the danger zone ...
 
-            self.env().extension()
-            .mint_nft(
+            Rmrk::mint_nft(
                 caller,
                 self.collection_id.unwrap(),
                 None,
@@ -854,7 +738,7 @@ pub mod governor {
             self._evolve_owner(caller)?;
 
             Ok(())
-         }
+        }
         
     }
 

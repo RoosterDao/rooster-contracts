@@ -19,6 +19,9 @@ scale-info = { version = "2", default-features = false, features = ["derive"], o
 # These dependencies
 openbrush = { version = "~2.1.0", default-features = false, features = ["pausable", "access_control", "timelock_controller"] }
 
+rmrk_extension = { path = "./crates/rmrk", default-features = false }
+
+
 [lib]
 name = "roosterdao"
 path = "lib.rs"
