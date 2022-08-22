@@ -403,10 +403,10 @@ pub mod governor {
             }
 
             let resource = BasicResource {
-                src: None,
+//                src: None,
                 metadata: Some(next_lvl_metadata.as_bytes().to_vec()),
-                license: None,
-                thumb: None,
+//                license: None,
+//                thumb: None,
             };
 
             Rmrk::add_basic_resource(
