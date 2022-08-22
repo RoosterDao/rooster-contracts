@@ -388,25 +388,22 @@ pub mod governor {
             let nft_id = self.owners_nft.get(&account).unwrap();
 
             let next_lvl_metadata = match cur_lvl {
-                1 => "ipfs://ipfs/QmeeCx81m6RVjmzbHjdeHABa7ksVPymwvXRWSuXSnvpoYG",
-                2 => "ipfs://ipfs/QmSvdCbp8VCPcptoQfZUZ725fd3gyuc8bao1qpykba9zEm",
-                3 => "ipfs://ipfs/QmXCHpDw6cPGUzksURJ4rXQsxoDKTYvjYKUzcffWmQyhBh",
+                0 => "ipfs://ipfs/QmeeCx81m6RVjmzbHjdeHABa7ksVPymwvXRWSuXSnvpoYG",
+                1 => "ipfs://ipfs/QmSvdCbp8VCPcptoQfZUZ725fd3gyuc8bao1qpykba9zEm",
+                2 => "ipfs://ipfs/QmXCHpDw6cPGUzksURJ4rXQsxoDKTYvjYKUzcffWmQyhBh",
                 _ => "ipfs://ipfs/QmddZKVwg2jg1aqmFnqLAmpUAr8zM8asy8x6tSLuLdY1Sd",
             };
 
-            if cur_lvl > 1 {
+            if cur_lvl > 0 {
                 let _result = Rmrk::remove_resource(
                     self.collection_id.unwrap(),
                     nft_id,
-                    cur_lvl
+                    cur_lvl - 1
                 );
             }
 
             let resource = BasicResource {
-//                src: None,
                 metadata: Some(next_lvl_metadata.as_bytes().to_vec()),
-//                license: None,
-//                thumb: None,
             };
 
             Rmrk::add_basic_resource(
@@ -733,7 +730,7 @@ pub mod governor {
 
             self.owners.push(caller);
             self.owners_nft.insert(&caller, &nft_id);
-            self.owners_lvl.insert(&caller,&1);
+            self.owners_lvl.insert(&caller,&0);
 
             self._evolve_owner(caller)?;
 
